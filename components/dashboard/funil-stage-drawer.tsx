@@ -1,7 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  ArrowDownAZ,
+  ArrowDownUp,
+  CalendarDays,
+  ChevronDown,
+  Clock3,
+  Search,
+  SlidersHorizontal,
+  UserRound,
+  X,
+} from "lucide-react";
 import type { FunilClientDetail, FunilData, FunilRow, SlaStatus } from "@/lib/types";
 import type { StageSummary } from "@/lib/funil/computeMetrics";
 import { currencyFormatter, normalizeText, parseDate, ptDateFormatter } from "@/lib/utils";
@@ -11,6 +21,7 @@ import { Select } from "@/components/ui/select";
 
 type SortKey = "name" | "valor" | "dias" | "desde";
 type SortDir = "asc" | "desc";
+type StatusFilter = "all" | SlaStatus;
 
 interface Props {
   stage: StageSummary | null;
@@ -84,10 +95,33 @@ function formatElapsedTime(days: number) {
   return `${days.toFixed(1).replace(".", ",")} dias`;
 }
 
+function clientSubtitle(detail: FunilClientDetail | null) {
+  if (!detail) return "Sem dados adicionais";
+  return [detail.segmentoNome, detail.subsegmentoNome, detail.celebridade]
+    .filter(Boolean)
+    .join(" · ") || detail.whatsapp || "Sem segmento";
+}
+
+const statusTabs: Array<{ value: StatusFilter; label: string }> = [
+  { value: "all", label: "Todos" },
+  { value: "overdue", label: "Atrasados" },
+  { value: "warning", label: "Em alerta" },
+  { value: "ok", label: "No prazo" },
+  { value: "none", label: "Sem SLA" },
+];
+
+const sortOptions: Array<{ value: SortKey; label: string }> = [
+  { value: "name", label: "Cliente" },
+  { value: "valor", label: "Valor" },
+  { value: "dias", label: "Tempo" },
+  { value: "desde", label: "Entrou em" },
+];
+
 export function FunilStageDrawer({ stage, rows, clients, onClose }: Props) {
   const open = stage !== null;
 
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [responsavelFilter, setResponsavelFilter] = useState<string>("all");
   const [segmentoFilter, setSegmentoFilter] = useState<string>("all");
   const [valorMin, setValorMin] = useState<string>("");
@@ -101,6 +135,7 @@ export function FunilStageDrawer({ stage, rows, clients, onClose }: Props) {
   useEffect(() => {
     if (!open) return;
     setSearch("");
+    setStatusFilter("all");
     setResponsavelFilter("all");
     setSegmentoFilter("all");
     setValorMin("");
@@ -173,14 +208,14 @@ export function FunilStageDrawer({ stage, rows, clients, onClose }: Props) {
     return n;
   }, [responsavelFilter, segmentoFilter, valorMin, valorMax, diasMin, diasMax]);
 
-  const filteredRows = useMemo(() => {
+  const baseFilteredRows = useMemo(() => {
     const searchNorm = normalizeText(search);
     const valorMinNum = valorMin === "" ? null : Number(valorMin);
     const valorMaxNum = valorMax === "" ? null : Number(valorMax);
     const diasMinNum = diasMin === "" ? null : Number(diasMin);
     const diasMaxNum = diasMax === "" ? null : Number(diasMax);
 
-    const result = stageRows.filter((row) => {
+    return stageRows.filter((row) => {
       if (searchNorm) {
         const haystack = normalizeText(
           [row.detail?.nome, row.detail?.whatsapp, row.detail?.celebridade, row.detail?.responsavelNome]
@@ -206,7 +241,23 @@ export function FunilStageDrawer({ stage, rows, clients, onClose }: Props) {
 
       return true;
     });
+  }, [stageRows, search, responsavelFilter, segmentoFilter, valorMin, valorMax, diasMin, diasMax]);
 
+  const statusCounts = useMemo(
+    () =>
+      baseFilteredRows.reduce(
+        (acc, row) => {
+          acc.all += 1;
+          acc[row.slaStatus] += 1;
+          return acc;
+        },
+        { all: 0, ok: 0, warning: 0, overdue: 0, none: 0 } as Record<StatusFilter, number>,
+      ),
+    [baseFilteredRows],
+  );
+
+  const filteredRows = useMemo(() => {
+    const result = baseFilteredRows.filter((row) => statusFilter === "all" || row.slaStatus === statusFilter);
     result.sort((a, b) => {
       let cmp = 0;
       if (sortKey === "name") {
@@ -222,18 +273,7 @@ export function FunilStageDrawer({ stage, rows, clients, onClose }: Props) {
     });
 
     return result;
-  }, [
-    stageRows,
-    search,
-    responsavelFilter,
-    segmentoFilter,
-    valorMin,
-    valorMax,
-    diasMin,
-    diasMax,
-    sortKey,
-    sortDir,
-  ]);
+  }, [baseFilteredRows, statusFilter, sortKey, sortDir]);
 
   const totalValor = useMemo(
     () => filteredRows.reduce((sum, r) => sum + r.valor, 0),
@@ -253,27 +293,14 @@ export function FunilStageDrawer({ stage, rows, clients, onClose }: Props) {
     [filteredRows],
   );
 
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir(key === "name" ? "asc" : "desc");
-    }
-  };
-
   const clearFilters = () => {
+    setStatusFilter("all");
     setResponsavelFilter("all");
     setSegmentoFilter("all");
     setValorMin("");
     setValorMax("");
     setDiasMin("");
     setDiasMax("");
-  };
-
-  const sortIndicator = (key: SortKey) => {
-    if (sortKey !== key) return null;
-    return <span aria-hidden>{sortDir === "asc" ? "↑" : "↓"}</span>;
   };
 
   if (!open || !stage) return null;
@@ -293,28 +320,24 @@ export function FunilStageDrawer({ stage, rows, clients, onClose }: Props) {
             <div>
               <p className="fv2-drawer-eyebrow">Etapa do funil</p>
               <h2 className="fv2-drawer-title">{stage.name}</h2>
-              <p className="fv2-drawer-sub">
-                <strong>{filteredRows.length}</strong>
-                {filteredRows.length !== stageRows.length ? ` de ${stageRows.length}` : ""}{" "}
-                {stageRows.length === 1 ? "cliente" : "clientes"} ·{" "}
-                {currencyFormatter.format(totalValor)}
-                {slaSummary.overdue > 0 ? (
-                  <>
-                    {" · "}
-                    <span className="fv2-sla-pill fv2-sla-pill--overdue">
-                      {slaSummary.overdue} atrasado{slaSummary.overdue === 1 ? "" : "s"}
-                    </span>
-                  </>
-                ) : null}
-                {slaSummary.warning > 0 ? (
-                  <>
-                    {" · "}
-                    <span className="fv2-sla-pill fv2-sla-pill--warning">
-                      {slaSummary.warning} em alerta
-                    </span>
-                  </>
-                ) : null}
-              </p>
+              <div className="fv2-drawer-summary" aria-label="Resumo da etapa filtrada">
+                <span>
+                  <strong>{filteredRows.length}</strong>
+                  {filteredRows.length !== stageRows.length ? ` de ${stageRows.length}` : ""} clientes
+                </span>
+                <span>
+                  <strong>{currencyFormatter.format(totalValor)}</strong>
+                  valor
+                </span>
+                <span className="is-overdue">
+                  <strong>{slaSummary.overdue}</strong>
+                  atrasados
+                </span>
+                <span className="is-warning">
+                  <strong>{slaSummary.warning}</strong>
+                  em alerta
+                </span>
+              </div>
             </div>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fechar">
@@ -345,6 +368,21 @@ export function FunilStageDrawer({ stage, rows, clients, onClose }: Props) {
             ) : null}
             <ChevronDown className="h-3.5 w-3.5 fv2-drawer-filter-chev" aria-hidden />
           </button>
+        </div>
+
+        <div className="fv2-drawer-status-tabs" aria-label="Filtrar por status do SLA">
+          {statusTabs.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              className={`fv2-drawer-status-tab ${statusFilter === tab.value ? "is-active" : ""}`}
+              onClick={() => setStatusFilter(tab.value)}
+              aria-pressed={statusFilter === tab.value}
+            >
+              <span>{tab.label}</span>
+              <strong>{statusCounts[tab.value]}</strong>
+            </button>
+          ))}
         </div>
 
         {filtersExpanded ? (
@@ -423,102 +461,84 @@ export function FunilStageDrawer({ stage, rows, clients, onClose }: Props) {
           </div>
         ) : null}
 
-        <div className="fv2-drawer-table" role="table">
-          <div className="fv2-drawer-thead" role="row">
-            <button
-              type="button"
-              className="fv2-drawer-th fv2-drawer-th--name"
-              role="columnheader"
-              onClick={() => toggleSort("name")}
-            >
-              Cliente {sortIndicator("name")}
-            </button>
-            <button
-              type="button"
-              className="fv2-drawer-th fv2-drawer-th--num"
-              role="columnheader"
-              onClick={() => toggleSort("valor")}
-            >
-              Valor {sortIndicator("valor")}
-            </button>
-            <button
-              type="button"
-              className="fv2-drawer-th fv2-drawer-th--num"
-              role="columnheader"
-              onClick={() => toggleSort("dias")}
-            >
-              Tempo {sortIndicator("dias")}
-            </button>
-            <div className="fv2-drawer-th fv2-drawer-th--sla" role="columnheader">
-              SLA
+        <div className="fv2-drawer-list-shell">
+          <div className="fv2-drawer-list-tools">
+            <div className="fv2-drawer-list-title">
+              <span>Clientes na etapa</span>
+              <strong>{filteredRows.length}</strong>
             </div>
-            <div className="fv2-drawer-th fv2-drawer-th--owner" role="columnheader">
-              Responsável
+            <div className="fv2-drawer-sort">
+              <ArrowDownAZ className="h-3.5 w-3.5" aria-hidden />
+              <Select
+                aria-label="Ordenar por"
+                value={sortKey}
+                onChange={(event) => {
+                  const next = event.target.value as SortKey;
+                  setSortKey(next);
+                  setSortDir(next === "name" ? "asc" : "desc");
+                }}
+              >
+                {sortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+              <button
+                type="button"
+                className="fv2-drawer-sort-dir"
+                onClick={() => setSortDir((dir) => (dir === "asc" ? "desc" : "asc"))}
+                aria-label={sortDir === "asc" ? "Ordenação crescente" : "Ordenação decrescente"}
+              >
+                <ArrowDownUp className="h-3.5 w-3.5" aria-hidden />
+                {sortDir === "asc" ? "Asc" : "Desc"}
+              </button>
             </div>
-            <button
-              type="button"
-              className="fv2-drawer-th fv2-drawer-th--num"
-              role="columnheader"
-              onClick={() => toggleSort("desde")}
-            >
-              Desde {sortIndicator("desde")}
-            </button>
           </div>
 
-          <div className="fv2-drawer-tbody" role="rowgroup">
+          <div className="fv2-drawer-list" role="list">
             {filteredRows.length === 0 ? (
               <p className="fv2-drawer-empty">Nenhum cliente atende aos filtros.</p>
             ) : (
               filteredRows.map((row) => {
                 const nome = row.detail?.nome ?? "Cliente sem nome";
                 const responsavel = row.detail?.responsavelNome ?? "—";
+                const label = slaPillLabel(row.slaStatus, row.slaHoursRemaining) ?? "Sem SLA";
                 return (
                   <a
                     key={row.clienteId}
-                    className="fv2-drawer-tr"
-                    role="row"
+                    className={`fv2-drawer-row fv2-drawer-row--${row.slaStatus}`}
+                    role="listitem"
                     href={`/clientes/${row.clienteId}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`Abrir detalhes de ${nome}`}
                   >
-                    <div className="fv2-drawer-td fv2-drawer-td--name" role="cell" title={nome}>
-                      {nome}
+                    <div className="fv2-row-client">
+                      <strong title={nome}>{nome}</strong>
+                      <span>{clientSubtitle(row.detail)}</span>
                     </div>
-                    <div
-                      className="fv2-drawer-td fv2-drawer-td--num"
-                      role="cell"
-                      title={currencyFormatter.format(row.valor)}
-                    >
+                    <div className="fv2-row-sla">
+                      <span className={`fv2-sla-pill fv2-sla-pill--${row.slaStatus}`}>
+                        {label}
+                      </span>
+                    </div>
+                    <div className="fv2-row-value" title={currencyFormatter.format(row.valor)}>
                       {currencyFormatter.format(row.valor)}
                     </div>
-                    <div className="fv2-drawer-td fv2-drawer-td--num" role="cell">
-                      {formatElapsedTime(row.dias)}
-                    </div>
-                    <div className="fv2-drawer-td fv2-drawer-td--sla" role="cell">
-                      {(() => {
-                        const label = slaPillLabel(row.slaStatus, row.slaHoursRemaining);
-                        if (!label) return <span style={{ color: "var(--muted)" }}>—</span>;
-                        return (
-                          <span className={`fv2-sla-pill fv2-sla-pill--${row.slaStatus}`}>
-                            {label}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                    <div
-                      className="fv2-drawer-td fv2-drawer-td--owner"
-                      role="cell"
-                      title={responsavel}
-                    >
-                      {responsavel}
-                    </div>
-                    <div
-                      className="fv2-drawer-td fv2-drawer-td--num"
-                      role="cell"
-                      title={formatDateBr(row.desde)}
-                    >
-                      {formatShortDate(row.desde)}
+                    <div className="fv2-row-meta" aria-label="Metadados do cliente na etapa">
+                      <span title={responsavel}>
+                        <UserRound className="h-3.5 w-3.5" aria-hidden />
+                        {responsavel}
+                      </span>
+                      <span>
+                        <Clock3 className="h-3.5 w-3.5" aria-hidden />
+                        {formatElapsedTime(row.dias)}
+                      </span>
+                      <span title={formatDateBr(row.desde)}>
+                        <CalendarDays className="h-3.5 w-3.5" aria-hidden />
+                        Entrou em {formatShortDate(row.desde)}
+                      </span>
                     </div>
                   </a>
                 );
