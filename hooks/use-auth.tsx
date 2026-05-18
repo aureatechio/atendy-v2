@@ -1,14 +1,21 @@
 "use client";
 
-import type { Session, User } from "@supabase/supabase-js";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { timeAuthStep } from "@/lib/auth/debug";
 import type { Profile } from "@/lib/auth/types";
+import {
+  profileSelectColumns,
+  summarizeAuthUser,
+  type AuthSnapshot,
+  type AuthUserSummary,
+} from "@/lib/auth/session";
 
 type AuthContextValue = {
   loading: boolean;
   session: Session | null;
-  user: User | null;
+  user: AuthUserSummary | null;
   profile: Profile | null;
   isAuthenticated: boolean;
   isPending: boolean;
@@ -24,28 +31,56 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const profileColumns =
-  "id, full_name, avatar_url, role, status, specialty, permissions, is_team_admin, autorizado_tirar_analise_ia, created_at, updated_at";
+type LoadProfileOptions = {
+  force?: boolean;
+};
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [loading, setLoading] = useState(true);
+export function AuthProvider({ children, initialAuth }: { children: React.ReactNode; initialAuth?: AuthSnapshot }) {
+  const initialUser = initialAuth?.user ?? null;
+  const initialProfile = initialAuth?.profile ?? null;
+  const hasActiveInitialAuth = initialAuth?.status === "active";
+  const [loading, setLoading] = useState(!hasActiveInitialAuth);
   const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [user, setUser] = useState<AuthUserSummary | null>(initialUser);
+  const [profile, setProfile] = useState<Profile | null>(initialProfile);
+  const profileRef = useRef<Profile | null>(initialProfile);
+  const profileRequestRef = useRef<{ userId: string; promise: Promise<Profile | null> } | null>(null);
   const supabase = useMemo(() => createClient(), []);
 
   const loadProfile = useCallback(
-    async (userId: string) => {
-      const { data, error } = await supabase.from("profiles").select(profileColumns).eq("id", userId).maybeSingle();
-
-      if (error || !data) {
-        setProfile(null);
-        return null;
+    async (userId: string, options: LoadProfileOptions = {}) => {
+      if (!options.force && profileRef.current?.id === userId) {
+        return profileRef.current;
       }
 
-      const nextProfile = data as Profile;
-      setProfile(nextProfile);
-      return nextProfile;
+      if (!options.force && profileRequestRef.current?.userId === userId) {
+        return profileRequestRef.current.promise;
+      }
+
+      const promise: Promise<Profile | null> = timeAuthStep("client profile", () =>
+        supabase.from("profiles").select(profileSelectColumns).eq("id", userId).maybeSingle(),
+      ).then(({ data, error }) => {
+        if (error || !data) {
+          profileRef.current = null;
+          setProfile(null);
+          return null;
+        }
+
+        const nextProfile = data as Profile;
+        profileRef.current = nextProfile;
+        setProfile(nextProfile);
+        return nextProfile;
+      });
+
+      profileRequestRef.current = { userId, promise };
+
+      try {
+        return await promise;
+      } finally {
+        if (profileRequestRef.current?.promise === promise) {
+          profileRequestRef.current = null;
+        }
+      }
     },
     [supabase],
   );
@@ -56,17 +91,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
 
-    return loadProfile(user.id);
+    return loadProfile(user.id, { force: true });
   }, [loadProfile, user]);
+
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   useEffect(() => {
     let mounted = true;
 
     async function initialize() {
+      if (hasActiveInitialAuth) {
+        setLoading(false);
+        return;
+      }
+
       try {
         const {
           data: { session: initialSession },
-        } = await supabase.auth.getSession();
+        } = await timeAuthStep("client auth.getSession", () => supabase.auth.getSession());
         const initialUser = initialSession?.user ?? null;
 
         if (!mounted) {
@@ -74,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         setSession(initialSession);
-        setUser(initialUser);
+        setUser(initialUser ? summarizeAuthUser(initialUser) : null);
 
         if (initialUser) {
           await loadProfile(initialUser.id);
@@ -101,9 +145,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       const nextUser = nextSession?.user ?? null;
       setSession(nextSession);
-      setUser(nextUser);
+      setUser(nextUser ? summarizeAuthUser(nextUser) : null);
 
       if (!nextUser) {
+        profileRef.current = null;
         setProfile(null);
         setLoading(false);
         return;
@@ -116,7 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [loadProfile, supabase]);
+  }, [hasActiveInitialAuth, loadProfile, supabase]);
 
   const signIn = useCallback(
     async (email: string, password: string) => {
@@ -127,10 +172,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setSession(data.session);
-      setUser(data.user);
+      setUser(data.user ? summarizeAuthUser(data.user) : null);
 
       if (data.user) {
-        const nextProfile = await loadProfile(data.user.id);
+        const nextProfile = await loadProfile(data.user.id, { force: true });
 
         if (!nextProfile) {
           return { error: "Perfil interno nao encontrado para este usuario." };
@@ -155,6 +200,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
+    profileRef.current = null;
     setProfile(null);
   }, [supabase]);
 

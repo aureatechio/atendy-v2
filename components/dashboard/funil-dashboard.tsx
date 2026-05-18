@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useMemo, type CSSProperties } from "react";
+import { useId, useMemo, useState, type CSSProperties } from "react";
 import { AlertTriangle, ArrowUpRight, Clock3 } from "lucide-react";
 import { useFunilFilter } from "@/hooks/useFunilFilter";
 import { computeFunilKpis, type StageSummary } from "@/lib/funil/computeMetrics";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { FunilStageDrawer } from "@/components/dashboard/funil-stage-drawer";
 
 interface Props {
   initialData: FunilData;
@@ -117,7 +118,15 @@ function buildFlowPath(stages: StageSummary[], scaleMode: "sqrt" | "linear") {
   return `${d} L ${startX} ${points[0].bottomY} Z`;
 }
 
-function FlowFunnel({ stages, scaleMode }: { stages: StageSummary[]; scaleMode: "sqrt" | "linear" }) {
+function FlowFunnel({
+  stages,
+  scaleMode,
+  onSelectStage,
+}: {
+  stages: StageSummary[];
+  scaleMode: "sqrt" | "linear";
+  onSelectStage?: (stage: StageSummary) => void;
+}) {
   const gradientId = useId().replace(/:/g, "");
   const totalClients = useMemo(() => stages.reduce((sum, stage) => sum + stage.clientes, 0), [stages]);
   const totalWidth = Math.max(stages.length * FLOW_COL_WIDTH, 720);
@@ -173,9 +182,26 @@ function FlowFunnel({ stages, scaleMode }: { stages: StageSummary[]; scaleMode: 
           return (
             <article
               key={stage.slug}
-              className={`flow-col ${isDominant ? "is-dominant" : ""}`}
+              className={`flow-col ${isDominant ? "is-dominant" : ""} ${onSelectStage ? "is-clickable" : ""}`}
               style={{ "--col-color": stage.color } as CSSProperties}
-              aria-label={`${stage.name}: ${stage.clientes} clientes, ${pctLabel} do funil, ${stage.valorLabel}, ${daysLabel} na etapa`}
+              aria-label={
+                onSelectStage
+                  ? `Ver clientes em ${stage.name}`
+                  : `${stage.name}: ${stage.clientes} clientes, ${pctLabel} do funil, ${stage.valorLabel}, ${daysLabel} na etapa`
+              }
+              role={onSelectStage ? "button" : undefined}
+              tabIndex={onSelectStage ? 0 : undefined}
+              onClick={onSelectStage ? () => onSelectStage(stage) : undefined}
+              onKeyDown={
+                onSelectStage
+                  ? (event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onSelectStage(stage);
+                      }
+                    }
+                  : undefined
+              }
             >
               <div className="flow-col-top">
                 <div className="flow-icon">{index + 1}</div>
@@ -223,6 +249,7 @@ function FlowFunnel({ stages, scaleMode }: { stages: StageSummary[]; scaleMode: 
 
 export function FunilDashboard({ initialData }: Props) {
   const { state, setFilter, periodRange } = useFunilFilter();
+  const [selectedStage, setSelectedStage] = useState<StageSummary | null>(null);
   const filteredRows = useMemo(
     () => initialData.rows.filter((row) => isInsideRange(row.a, periodRange)),
     [initialData.rows, periodRange],
@@ -237,6 +264,11 @@ export function FunilDashboard({ initialData }: Props) {
     () => visibleStageSummary.reduce((sum, item) => sum + item.clientes, 0),
     [visibleStageSummary],
   );
+
+  const currentStage = useMemo(() => {
+    if (!selectedStage) return null;
+    return visibleStageSummary.find((s) => s.slug === selectedStage.slug) ?? null;
+  }, [selectedStage, visibleStageSummary]);
 
   return (
     <div className="space-y-4">
@@ -304,7 +336,11 @@ export function FunilDashboard({ initialData }: Props) {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <FlowFunnel stages={visibleStageSummary} scaleMode={state.scale} />
+          <FlowFunnel
+            stages={visibleStageSummary}
+            scaleMode={state.scale}
+            onSelectStage={setSelectedStage}
+          />
         </CardContent>
       </Card>
 
@@ -321,7 +357,20 @@ export function FunilDashboard({ initialData }: Props) {
                 const pct = stagePercent(stage.clientes, totalOcupacao);
                 const pctStyle = `${pct.toFixed(2)}%`;
                 return (
-                  <div key={stage.slug} className="ds-stage-card">
+                  <div
+                    key={stage.slug}
+                    className="ds-stage-card is-clickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedStage(stage)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedStage(stage);
+                      }
+                    }}
+                    aria-label={`Ver clientes em ${stage.name}`}
+                  >
                     <div className="mb-2 flex items-center justify-between text-xs ds-text-subtle">
                       <p className="font-medium ds-text">{stage.name}</p>
                       <p>{stage.clientes} clientes ativos</p>
@@ -344,6 +393,13 @@ export function FunilDashboard({ initialData }: Props) {
           )}
         </CardContent>
       </Card>
+
+      <FunilStageDrawer
+        stage={currentStage}
+        rows={filteredRows}
+        clients={initialData.clients_map}
+        onClose={() => setSelectedStage(null)}
+      />
     </div>
   );
 }

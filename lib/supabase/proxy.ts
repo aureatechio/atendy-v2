@@ -1,16 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { timeAuthStep } from "@/lib/auth/debug";
 import { getSupabasePublicKey, getSupabaseUrl } from "@/lib/supabase/env";
 
 const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/auth/callback"];
-const adminRoutes = ["/admin"];
 
 function isPublicRoute(pathname: string) {
   return publicRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
-}
-
-function isAdminRoute(pathname: string) {
-  return adminRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`));
 }
 
 function copyCookies(from: NextResponse, to: NextResponse) {
@@ -33,7 +29,11 @@ function redirectWithCookies(request: NextRequest, response: NextResponse, pathn
 }
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  const pathname = request.nextUrl.pathname;
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-atendy-pathname", `${pathname}${request.nextUrl.search}`);
+  const createSupabaseResponse = () => NextResponse.next({ request: { headers: requestHeaders } });
+  let supabaseResponse = createSupabaseResponse();
 
   const supabase = createServerClient(getSupabaseUrl(), getSupabasePublicKey(), {
     cookies: {
@@ -42,7 +42,7 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        supabaseResponse = NextResponse.next({ request });
+        supabaseResponse = createSupabaseResponse();
         cookiesToSet.forEach(({ name, value, options }) => supabaseResponse.cookies.set(name, value, options));
       },
     },
@@ -50,8 +50,7 @@ export async function updateSession(request: NextRequest) {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
-  const pathname = request.nextUrl.pathname;
+  } = await timeAuthStep("proxy auth.getUser", () => supabase.auth.getUser());
 
   if (!user) {
     if (isPublicRoute(pathname)) {
@@ -62,7 +61,13 @@ export async function updateSession(request: NextRequest) {
     return redirectWithCookies(request, supabaseResponse, "/login", { redirectTo });
   }
 
-  const { data: profile } = await supabase.from("profiles").select("id, role, status").eq("id", user.id).maybeSingle();
+  if (!isPublicRoute(pathname)) {
+    return supabaseResponse;
+  }
+
+  const { data: profile } = await timeAuthStep("proxy public profile", () =>
+    supabase.from("profiles").select("id, status").eq("id", user.id).maybeSingle(),
+  );
 
   if (!profile) {
     await supabase.auth.signOut();
@@ -75,18 +80,10 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (profile.status !== "active") {
-    if (isPublicRoute(pathname)) {
-      return supabaseResponse;
-    }
-
-    return redirectWithCookies(request, supabaseResponse, "/login", { error: "pending" });
+    return supabaseResponse;
   }
 
-  if (isPublicRoute(pathname) && pathname !== "/reset-password") {
-    return redirectWithCookies(request, supabaseResponse, "/");
-  }
-
-  if (isAdminRoute(pathname) && !["admin", "supervisor"].includes(profile.role)) {
+  if (pathname !== "/reset-password") {
     return redirectWithCookies(request, supabaseResponse, "/");
   }
 

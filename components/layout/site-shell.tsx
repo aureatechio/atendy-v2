@@ -80,10 +80,10 @@ export function SiteShell({ children }: { children: ReactNode }) {
         <section className="auth-card panel-card">
           <div className="auth-card-header">
             <div className="auth-card-brand">Atendy</div>
-            <h2>{loading ? "Verificando sua sessao" : "Redirecionando para o login"}</h2>
+            <h2>{loading ? "Carregando Atendy" : "Redirecionando para o login"}</h2>
             <p>
               {loading
-                ? "Estamos conferindo se sua sessao ainda esta ativa."
+                ? "Preparando seu ambiente de trabalho."
                 : "Sua sessao nao esta ativa. Voce sera levado para entrar novamente."}
             </p>
           </div>
@@ -155,7 +155,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <section className="app-content">{children}</section>
+          <section className={`app-content${pathname?.startsWith("/funil") ? " app-content--wide" : ""}`}>{children}</section>
         </main>
       </div>
     </div>

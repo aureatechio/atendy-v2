@@ -27,6 +27,11 @@ export interface StageSummary {
   minDays: number;
   maxDays: number;
   bottleneck: boolean;
+  slaAmount: number | null;
+  slaUnit: "business_days" | "business_hours" | "calendar_hours";
+  slaOverdue: number;
+  slaWarning: number;
+  slaOk: number;
 }
 
 const MEDIAN_LIMIT = 2;
@@ -94,14 +99,20 @@ export function computeFunilKpis(data: FunilData, rows: FunilData["rows"]) {
       const ids = new Set(inStage.map((r) => r.c).filter(Boolean));
       const valueKeys = new Set<string>();
       let valor = 0;
+      let slaOverdue = 0;
+      let slaWarning = 0;
+      let slaOk = 0;
       for (const row of inStage) {
         if (!row.c) continue;
         const valueKey = valueKeyForRow(row);
-        if (valueKeys.has(valueKey)) continue;
-
-        valueKeys.add(valueKey);
-        const value = valueForRow(row);
-        if (!Number.isNaN(value)) valor += value;
+        if (!valueKeys.has(valueKey)) {
+          valueKeys.add(valueKey);
+          const value = valueForRow(row);
+          if (!Number.isNaN(value)) valor += value;
+        }
+        if (row.slaStatus === "overdue") slaOverdue += 1;
+        else if (row.slaStatus === "warning") slaWarning += 1;
+        else if (row.slaStatus === "ok") slaOk += 1;
       }
 
       const stageKpi = {
@@ -119,6 +130,11 @@ export function computeFunilKpis(data: FunilData, rows: FunilData["rows"]) {
         minDays: leadTimes.length ? Math.min(...leadTimes) : 0,
         maxDays: leadTimes.length ? Math.max(...leadTimes) : 0,
         bottleneck: false,
+        slaAmount: stage.sla_amount,
+        slaUnit: stage.sla_unit,
+        slaOverdue,
+        slaWarning,
+        slaOk,
       } as StageSummary;
 
       stageKpi.bottleneck = isBottleneck(stageKpi);

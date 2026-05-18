@@ -6,6 +6,7 @@ import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { logAuthTiming, startAuthTiming } from "@/lib/auth/debug";
 import { loginSchema } from "@/lib/auth/validation";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -64,7 +65,9 @@ export function LoginForm() {
     }
 
     setIsSubmitting(true);
+    const startedAt = startAuthTiming();
     const result = await signIn(parsed.data.email, parsed.data.password);
+    logAuthTiming("login signIn", startedAt);
     setIsSubmitting(false);
 
     if (result.error) {
@@ -73,7 +76,7 @@ export function LoginForm() {
     }
 
     router.replace(safeRedirectPath(searchParams.get("redirectTo")) as Route);
-    router.refresh();
+    logAuthTiming("login submit-to-redirect", startedAt);
   }
 
   return (

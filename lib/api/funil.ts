@@ -1,4 +1,11 @@
-import type { FunilData, FunilRow, FunilStageMeta } from "@/lib/types";
+import type { FunilClientDetail, FunilData, FunilRow, FunilStageMeta, SlaUnit } from "@/lib/types";
+import { createClient } from "@/lib/supabase/server";
+import { evaluateSla } from "@/lib/sla/calculateDeadline";
+import { COMPLETED_TASK_STATUS } from "@/lib/production-tasks/status";
+
+type HolidayRecord = {
+  date: string;
+};
 
 type StageRecord = {
   id: string;
@@ -7,6 +14,10 @@ type StageRecord = {
   color: string | null;
   order_index: number | null;
   is_final: boolean | null;
+  parent_stage_id: string | null;
+  sla_amount: number | null;
+  sla_unit: string | null;
+  warn_at_percent: number | null;
 };
 
 type TaskRecord = {
@@ -20,53 +31,59 @@ type TaskRecord = {
 
 type ClientRecord = {
   id: string;
+  nomecliente?: string | null;
+  nome?: string | null;
+  whatsapp?: string | null;
   valor: string | number | null;
   deal_value: string | number | null;
   current_stage_id: string | null;
   stage_entered_at: string | null;
   created_at: string | null;
   is_archived: boolean | null;
+  responsavel_atendimento?: string | null;
+  assigned_to?: string | null;
+  segmento_id?: string | null;
+  subsegmento_id?: string | null;
+  segment?: string | null;
+  subsegment?: string | null;
+  prazo_final?: string | null;
+  celebridade?: string | null;
+};
+
+type ProfileRecord = {
+  id: string;
+  full_name: string | null;
+};
+
+type SegmentoRecord = {
+  id: string;
+  nome: string | null;
+};
+
+type SubsegmentoRecord = {
+  id: string;
+  nome: string | null;
 };
 
 const PAGE_SIZE = 1000;
 
-function getSupabaseConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+type SupabasePageResult<T> = {
+  data: T[] | null;
+  error: { message: string } | null;
+};
 
-  if (!url || !key) {
-    throw new Error("Supabase env vars are not configured for Funil de Producao.");
-  }
-
-  return { url: url.replace(/\/$/, ""), key };
-}
-
-async function fetchSupabasePage<T>(path: string, from: number, to: number): Promise<T[]> {
-  const config = getSupabaseConfig();
-  if (!config) throw new Error("Supabase env vars are not configured");
-
-  const response = await fetch(`${config.url}/rest/v1/${path}`, {
-    headers: {
-      apikey: config.key,
-      Authorization: `Bearer ${config.key}`,
-      Range: `${from}-${to}`,
-    },
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(`Supabase request failed (${response.status}): ${details}`);
-  }
-
-  return response.json() as Promise<T[]>;
-}
-
-async function fetchSupabaseAll<T>(path: string): Promise<T[]> {
+async function fetchSupabaseAll<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<SupabasePageResult<T>>,
+): Promise<T[]> {
   const rows: T[] = [];
 
   for (let from = 0; ; from += PAGE_SIZE) {
-    const page = await fetchSupabasePage<T>(path, from, from + PAGE_SIZE - 1);
+    const { data, error } = await fetchPage(from, from + PAGE_SIZE - 1);
+    if (error) {
+      throw new Error(`Supabase request failed: ${error.message}`);
+    }
+
+    const page = data ?? [];
     rows.push(...page);
 
     if (page.length < PAGE_SIZE) break;
@@ -94,12 +111,57 @@ function toDateKey(value: string | null | undefined) {
   return date.toISOString().slice(0, 10);
 }
 
-export function buildFunilData(stages: StageRecord[], tasks: TaskRecord[], clients: ClientRecord[]): FunilData {
+export function buildFunilData(
+  stages: StageRecord[],
+  tasks: TaskRecord[],
+  clients: ClientRecord[],
+  profiles: ProfileRecord[] = [],
+  segmentos: SegmentoRecord[] = [],
+  subsegmentos: SubsegmentoRecord[] = [],
+  holidays: HolidayRecord[] = [],
+): FunilData {
   const activeStages = stages
     .filter((stage) => stage.slug && stage.order_index != null)
     .sort((a, b) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0));
 
   const stageById = new Map(activeStages.map((stage) => [stage.id, stage]));
+  const rootStageOf = (stage: StageRecord): StageRecord => {
+    let current = stage;
+    const seen = new Set<string>();
+    while (current.parent_stage_id) {
+      if (seen.has(current.id)) break;
+      seen.add(current.id);
+      const parent = stageById.get(current.parent_stage_id);
+      if (!parent) break;
+      current = parent;
+    }
+    return current;
+  };
+
+  const holidaySet = new Set(holidays.map((h) => h.date));
+
+  const computeSla = (stage: StageRecord, enteredAt: string | null) => {
+    if (!enteredAt || stage.sla_amount == null) {
+      return { slaStatus: "none" as const, slaDeadline: null, slaHoursRemaining: null };
+    }
+    try {
+      const result = evaluateSla({
+        enteredAt,
+        slaAmount: stage.sla_amount,
+        slaUnit: (stage.sla_unit as SlaUnit | null) ?? "business_days",
+        warnAtPercent: stage.warn_at_percent ?? 80,
+        holidays: holidaySet,
+      });
+      return {
+        slaStatus: result.status,
+        slaDeadline: result.deadline ? result.deadline.toISOString() : null,
+        slaHoursRemaining: result.hoursRemaining,
+      };
+    } catch {
+      return { slaStatus: "none" as const, slaDeadline: null, slaHoursRemaining: null };
+    }
+  };
+
   const clientById = new Map(clients.filter((client) => !client.is_archived).map((client) => [client.id, client]));
   const activeClientKeys = new Set<string>();
   const activeClientIds = new Set<string>();
@@ -107,39 +169,48 @@ export function buildFunilData(stages: StageRecord[], tasks: TaskRecord[], clien
 
   for (const task of tasks) {
     if (!task.cliente_id || !task.pipeline_stage_id) continue;
+    if (task.status === COMPLETED_TASK_STATUS) continue;
     if (!clientById.has(task.cliente_id)) continue;
 
-    const stage = stageById.get(task.pipeline_stage_id);
-    if (!stage?.slug || stage.is_final) continue;
+    const rawStage = stageById.get(task.pipeline_stage_id);
+    if (!rawStage?.slug) continue;
+    const stage = rootStageOf(rawStage);
+    if (!stage.slug || stage.is_final) continue;
 
-    const key = `${task.cliente_id}:${task.pipeline_stage_id}`;
+    const key = `${task.cliente_id}:${stage.id}`;
     if (activeClientKeys.has(key)) continue;
 
     activeClientKeys.add(key);
     activeClientIds.add(task.cliente_id);
 
     const activeSince = task.started_at ?? task.created_at;
+    const sla = computeSla(stage, activeSince);
     rows.push({
       c: task.cliente_id,
       s: stage.slug,
       d: Number(daysSince(activeSince).toFixed(2)),
       a: toDateKey(activeSince),
       l: task.cliente_id,
+      ...sla,
     });
   }
 
   for (const client of clientById.values()) {
     if (!client.current_stage_id || activeClientIds.has(client.id)) continue;
-    const stage = stageById.get(client.current_stage_id);
-    if (!stage?.slug) continue;
+    const rawStage = stageById.get(client.current_stage_id);
+    if (!rawStage?.slug) continue;
+    const stage = rootStageOf(rawStage);
+    if (!stage.slug) continue;
 
     const activeSince = client.stage_entered_at ?? client.created_at;
+    const sla = computeSla(stage, activeSince);
     rows.push({
       c: client.id,
       s: stage.slug,
       d: Number(daysSince(activeSince).toFixed(2)),
       a: toDateKey(activeSince),
       l: client.id,
+      ...sla,
     });
   }
 
@@ -150,29 +221,124 @@ export function buildFunilData(stages: StageRecord[], tasks: TaskRecord[], clien
     ]),
   );
 
-  const stages_meta: FunilStageMeta[] = activeStages.map((stage) => ({
+  const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
+  const segmentoById = new Map(segmentos.map((segmento) => [segmento.id, segmento]));
+  const subsegmentoById = new Map(subsegmentos.map((sub) => [sub.id, sub]));
+
+  const clients_map: Record<string, FunilClientDetail> = {};
+  for (const client of clientById.values()) {
+    const responsavelId = client.responsavel_atendimento ?? client.assigned_to ?? null;
+    const responsavel = responsavelId ? profileById.get(responsavelId) ?? null : null;
+    const segmento = client.segmento_id ? segmentoById.get(client.segmento_id) ?? null : null;
+    const subsegmento = client.subsegmento_id ? subsegmentoById.get(client.subsegmento_id) ?? null : null;
+    const segmentoNome = segmento?.nome ?? client.segment ?? null;
+    const subsegmentoNome = subsegmento?.nome ?? client.subsegment ?? null;
+
+    clients_map[client.id] = {
+      id: client.id,
+      nome: client.nomecliente ?? client.nome ?? "Sem nome",
+      whatsapp: client.whatsapp ?? null,
+      valor: numberValue(client.valor) || numberValue(client.deal_value),
+      responsavelId,
+      responsavelNome: responsavel?.full_name ?? null,
+      segmentoId: client.segmento_id ?? null,
+      segmentoNome,
+      subsegmentoNome,
+      prazoFinal: client.prazo_final ?? null,
+      celebridade: client.celebridade ?? null,
+    };
+  }
+
+  const stageToMeta = (stage: StageRecord): FunilStageMeta => ({
+    id: stage.id,
     slug: String(stage.slug),
     name: stage.name ?? String(stage.slug),
     order_index: Number(stage.order_index ?? 0),
     color: stage.color ?? "#64748b",
     is_final: Boolean(stage.is_final),
-  }));
+    parent_stage_id: stage.parent_stage_id,
+    sla_amount: stage.sla_amount,
+    sla_unit: (stage.sla_unit as SlaUnit | null) ?? "business_days",
+    warn_at_percent: stage.warn_at_percent ?? 80,
+  });
 
-  return { stages_meta, rows, valor_map };
+  const rootStages = activeStages.filter((stage) => stage.parent_stage_id === null);
+  const substagesByParent = new Map<string, StageRecord[]>();
+  for (const stage of activeStages) {
+    if (!stage.parent_stage_id) continue;
+    const list = substagesByParent.get(stage.parent_stage_id) ?? [];
+    list.push(stage);
+    substagesByParent.set(stage.parent_stage_id, list);
+  }
+
+  const stages_meta: FunilStageMeta[] = rootStages.map((stage) => {
+    const meta = stageToMeta(stage);
+    const children = substagesByParent.get(stage.id);
+    if (children && children.length > 0) {
+      meta.substages = children
+        .slice()
+        .sort((a, b) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0))
+        .map(stageToMeta);
+    }
+    return meta;
+  });
+
+  return { stages_meta, rows, valor_map, clients_map };
 }
 
 export async function getFunilDados(): Promise<FunilData> {
-  const [stages, tasks, clients] = await Promise.all([
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    throw new Error("Authenticated Supabase session is required for Funil de Producao.");
+  }
+
+  const [stages, tasks, clients, profiles, segmentos, subsegmentos, holidays] = await Promise.all([
     fetchSupabaseAll<StageRecord>(
-      "client_pipeline_stages?select=id,name,slug,color,order_index,is_final&is_active=eq.true&order=order_index.asc",
+      (from, to) =>
+        supabase
+          .from("client_pipeline_stages")
+          .select("id,name,slug,color,order_index,is_final,parent_stage_id,sla_amount,sla_unit,warn_at_percent")
+          .eq("is_active", true)
+          .order("order_index", { ascending: true })
+          .range(from, to),
     ),
     fetchSupabaseAll<TaskRecord>(
-      "production_tasks?select=id,cliente_id,pipeline_stage_id,status,started_at,created_at&pipeline_stage_id=not.is.null&status=neq.finalizado",
+      (from, to) =>
+        supabase
+          .from("production_tasks")
+          .select("id,cliente_id,pipeline_stage_id,status,started_at,created_at")
+          .not("pipeline_stage_id", "is", null)
+          .neq("status", COMPLETED_TASK_STATUS)
+          .range(from, to),
     ),
     fetchSupabaseAll<ClientRecord>(
-      "clientes_cadastro?select=id,valor,deal_value,current_stage_id,stage_entered_at,created_at,is_archived&is_archived=eq.false",
+      (from, to) =>
+        supabase
+          .from("clientes_cadastro")
+          .select(
+            "id,nomecliente,nome,whatsapp,valor,deal_value,current_stage_id,stage_entered_at,created_at,is_archived,responsavel_atendimento,assigned_to,segmento_id,subsegmento_id,segment,subsegment,prazo_final,celebridade",
+          )
+          .eq("is_archived", false)
+          .range(from, to),
+    ),
+    fetchSupabaseAll<ProfileRecord>(
+      (from, to) => supabase.from("profiles").select("id,full_name").range(from, to),
+    ),
+    fetchSupabaseAll<SegmentoRecord>(
+      (from, to) => supabase.from("segmentos").select("id,nome").range(from, to),
+    ),
+    fetchSupabaseAll<SubsegmentoRecord>(
+      (from, to) => supabase.from("subsegmentos").select("id,nome").range(from, to),
+    ),
+    fetchSupabaseAll<HolidayRecord>(
+      (from, to) => supabase.from("business_holidays").select("date").range(from, to),
     ),
   ]);
 
-  return buildFunilData(stages, tasks, clients);
+  return buildFunilData(stages, tasks, clients, profiles, segmentos, subsegmentos, holidays);
 }

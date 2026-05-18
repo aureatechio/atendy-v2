@@ -1,6 +1,6 @@
 export type SortDirection = "asc" | "desc" | "none";
 
-export type PeriodPreset = "all" | "month" | "lastMonth" | "year" | "custom";
+export type PeriodPreset = "all" | "month" | "lastMonth" | "monthPick" | "year" | "custom";
 
 export interface DateRange {
   from?: string;
@@ -56,13 +56,29 @@ export interface Compra {
   [key: string]: unknown;
 }
 
+export type SlaUnit = "business_days" | "business_hours" | "calendar_hours";
+
 export interface FunilStageMeta {
+  id: string;
   slug: string;
   name: string;
   order_index: number;
   color: string;
   is_final: boolean;
+  parent_stage_id: string | null;
+  sla_amount: number | null;
+  sla_unit: SlaUnit;
+  warn_at_percent: number;
+  substages?: FunilStageMeta[];
 }
+
+export interface BusinessHoliday {
+  date: string;
+  description: string;
+  scope: "national" | "regional" | "company";
+}
+
+export type SlaStatus = "ok" | "warning" | "overdue" | "none";
 
 export interface FunilRow {
   c: string;
@@ -70,12 +86,30 @@ export interface FunilRow {
   d: number;
   a: string;
   l: string | null;
+  slaStatus?: SlaStatus;
+  slaDeadline?: string | null;
+  slaHoursRemaining?: number | null;
+}
+
+export interface FunilClientDetail {
+  id: string;
+  nome: string;
+  whatsapp: string | null;
+  valor: number;
+  responsavelId: string | null;
+  responsavelNome: string | null;
+  segmentoId: string | null;
+  segmentoNome: string | null;
+  subsegmentoNome: string | null;
+  prazoFinal: string | null;
+  celebridade: string | null;
 }
 
 export interface FunilData {
   stages_meta: FunilStageMeta[];
   rows: FunilRow[];
   valor_map: Record<string, number>;
+  clients_map: Record<string, FunilClientDetail>;
 }
 
 export type CompraColumnKey =
