@@ -296,23 +296,51 @@ function StageHistoryCard({
   profiles: Record<string, ClienteProfile>;
 }) {
   const stageById = new Map(stages.map((s) => [s.id, s]));
+  const stageHistory = history;
 
   return (
     <Card className="panel-card">
       <CardHeader>
         <CardTitle>
-          <History className="inline h-4 w-4 mr-1.5" /> Histórico de etapas
+          <History className="inline h-4 w-4 mr-1.5" /> Histórico de etapas e atribuições
         </CardTitle>
       </CardHeader>
       <CardContent>
         {history.length === 0 ? (
-          <p className="cliente-empty">Sem mudanças de etapa registradas.</p>
+          <p className="cliente-empty">Sem alterações registradas.</p>
         ) : (
           <ol className="cliente-timeline">
-            {history.map((entry) => {
+            {stageHistory.map((entry) => {
               const from = entry.from_stage_id ? stageById.get(entry.from_stage_id) : null;
               const to = entry.to_stage_id ? stageById.get(entry.to_stage_id) : null;
               const author = profileName(profiles, entry.changed_by);
+              const fromAssigned = profileName(profiles, entry.from_assigned_to);
+              const toAssigned = profileName(profiles, entry.to_assigned_to);
+              const isAssignment = entry.action_type === "assignment_change";
+
+              const actionLabel =
+                entry.action_type === "stage_change"
+                  ? "Mudança de etapa"
+                  : isAssignment
+                    ? "Mudança de responsável"
+                    : entry.action_type === "created"
+                      ? "Cliente criado"
+                      : entry.action_type ?? "Ação";
+
+              const title =
+                isAssignment ? (
+                  <>
+                    <strong>{fromAssigned ?? "Sem responsável anterior"}</strong>
+                    {" → "}
+                    <strong>{toAssigned ?? "Sem responsável atual"}</strong>
+                  </>
+                ) : (
+                  <>
+                    {from?.name ? `${from.name} → ` : ""}
+                    <strong>{to?.name ?? "—"}</strong>
+                  </>
+                );
+
               return (
                 <li key={entry.id} className="cliente-timeline-item">
                   <span
@@ -322,13 +350,12 @@ function StageHistoryCard({
                   />
                   <div>
                     <p className="cliente-timeline-title">
-                      {from?.name ? `${from.name} → ` : ""}
-                      <strong>{to?.name ?? "—"}</strong>
+                      {title}
                     </p>
                     <p className="cliente-timeline-meta">
                       {fmtDateTime(entry.created_at)}
                       {author ? ` · por ${author}` : ""}
-                      {entry.action_type ? ` · ${entry.action_type}` : ""}
+                      {actionLabel ? ` · ${actionLabel}` : ""}
                     </p>
                     {entry.reason ? <p className="cliente-timeline-note">{entry.reason}</p> : null}
                   </div>

@@ -51,6 +51,7 @@ export interface ClienteStage {
   order_index: number;
   is_final: boolean;
   is_active: boolean;
+  parent_stage_id: string | null;
 }
 
 export interface ClienteStageHistoryEntry {
@@ -58,9 +59,12 @@ export interface ClienteStageHistoryEntry {
   cliente_id: string;
   from_stage_id: string | null;
   to_stage_id: string | null;
+  from_assigned_to: string | null;
+  to_assigned_to: string | null;
   changed_by: string | null;
   action_type: string | null;
   reason: string | null;
+  metadata: Record<string, unknown> | null;
   created_at: string | null;
 }
 
@@ -128,6 +132,45 @@ export interface ClienteDetalhes {
   profiles: Record<string, ClienteProfile>;
 }
 
+function sortPipelineStages(stages: ClienteStage[]) {
+  const stageById = new Map(stages.map((stage) => [stage.id, stage]));
+  const childrenByParent = new Map<string, ClienteStage[]>();
+
+  for (const stage of stages) {
+    const parentId = stage.parent_stage_id;
+    if (!parentId || !stageById.has(parentId)) continue;
+    const list = childrenByParent.get(parentId) ?? [];
+    list.push(stage);
+    childrenByParent.set(parentId, list);
+  }
+
+  for (const list of childrenByParent.values()) {
+    list.sort((a, b) => a.order_index - b.order_index);
+  }
+
+  const roots = stages
+    .filter((stage) => !stage.parent_stage_id || !stageById.has(stage.parent_stage_id))
+    .sort((a, b) => a.order_index - b.order_index);
+
+  const result: ClienteStage[] = [];
+  const visited = new Set<string>();
+
+  const visit = (stage: ClienteStage) => {
+    if (visited.has(stage.id)) return;
+    visited.add(stage.id);
+    result.push(stage);
+    const children = childrenByParent.get(stage.id) ?? [];
+    children.forEach(visit);
+  };
+
+  roots.forEach(visit);
+  for (const stage of stages) {
+    if (!visited.has(stage.id)) visit(stage);
+  }
+
+  return result;
+}
+
 export async function getClienteDetalhes(id: string): Promise<ClienteDetalhes | null> {
   const supabase = await createClient();
   const {
@@ -159,12 +202,14 @@ export async function getClienteDetalhes(id: string): Promise<ClienteDetalhes | 
   ] = await Promise.all([
     supabase
       .from("client_pipeline_stages")
-      .select("id, name, slug, color, order_index, is_final, is_active")
+      .select("id, name, slug, color, order_index, is_final, is_active, parent_stage_id")
       .eq("is_active", true)
       .order("order_index", { ascending: true }),
     supabase
       .from("client_stage_history")
-      .select("id, cliente_id, from_stage_id, to_stage_id, changed_by, action_type, reason, created_at")
+      .select(
+        "id, cliente_id, from_stage_id, to_stage_id, from_assigned_to, to_assigned_to, changed_by, action_type, reason, metadata, created_at",
+      )
       .eq("cliente_id", id)
       .order("created_at", { ascending: false })
       .limit(100),
@@ -199,7 +244,7 @@ export async function getClienteDetalhes(id: string): Promise<ClienteDetalhes | 
       .limit(50),
   ]);
 
-  const stages = (stagesRes.data ?? []) as ClienteStage[];
+  const stages = sortPipelineStages((stagesRes.data ?? []) as ClienteStage[]);
   const stageHistory = (historyRes.data ?? []) as ClienteStageHistoryEntry[];
   const comments = (commentsRes.data ?? []) as ClienteComment[];
   const tasks = (tasksRes.data ?? []) as ClienteTask[];
@@ -210,6 +255,10 @@ export async function getClienteDetalhes(id: string): Promise<ClienteDetalhes | 
   if (cliente.responsavel_atendimento) profileIds.add(cliente.responsavel_atendimento);
   if (cliente.assigned_to) profileIds.add(cliente.assigned_to);
   for (const h of stageHistory) if (h.changed_by) profileIds.add(h.changed_by);
+  for (const h of stageHistory) {
+    if (h.from_assigned_to) profileIds.add(h.from_assigned_to);
+    if (h.to_assigned_to) profileIds.add(h.to_assigned_to);
+  }
   for (const c of comments) if (c.author_id) profileIds.add(c.author_id);
   for (const t of tasks) if (t.assigned_to) profileIds.add(t.assigned_to);
   for (const m of meetings) if (m.organizer_id) profileIds.add(m.organizer_id);

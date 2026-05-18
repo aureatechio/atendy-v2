@@ -277,127 +277,120 @@ export function ClientesDashboard({ initialData }: Props) {
         <KpiTile icon={Wallet} label="Valor ativo" value={currencyFormatter.format(kpis.valorAtivo)} />
       </div>
 
-      <Card className="panel-card clientes-filter-card">
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="clientes-filter-grid">
-            <div className="clientes-search-field">
-              <label className="label">Busca (Cmd/Ctrl + K)</label>
-              <div className="clientes-search-input">
-                <Search className="h-4 w-4" />
-                <Input
-                  ref={searchRef}
-                  placeholder="Cliente, CNPJ, WhatsApp, e-mail, celebridade..."
-                  value={state.search}
-                  onChange={(event) => setFilter("search", event.target.value)}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="label">Período</label>
-              <Select value={state.period} onChange={(event) => setFilter("period", event.target.value as typeof state.period)}>
-                {clientesPeriodPresets.map((preset) => (
-                  <option key={preset.value} value={preset.value}>
-                    {preset.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div>
-              <label className="label">Filtrar por data de</label>
-              <Select value={state.periodField} onChange={(event) => setFilter("periodField", event.target.value as ClientesPeriodField)}>
-                {clientesPeriodFieldOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            {state.period === "monthPick" ? (
-              <div>
-                <label className="label">Mês</label>
-                <Select value={String(state.monthIndex)} onChange={(event) => setFilter("monthIndex", Number(event.target.value))}>
-                  {monthOptions.map((label, idx) => (
-                    <option key={label} value={idx}>
-                      {label} {currentYear}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            ) : null}
-
-            {state.period === "custom" ? (
-              <>
-                <div>
-                  <label className="label">De</label>
-                  <Input type="date" value={state.periodFrom} onChange={(event) => setFilter("periodFrom", event.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Até</label>
-                  <Input type="date" value={state.periodTo} onChange={(event) => setFilter("periodTo", event.target.value)} />
-                </div>
-              </>
-            ) : null}
-
-            <div>
-              <label className="label">Etapa</label>
-              <Select value={state.stageId} onChange={(event) => setFilter("stageId", event.target.value)}>
-                <option value="all">Todas</option>
-                {options.stages.map((stage) => (
-                  <option key={stage.id} value={stage.id}>
-                    {stage.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div>
-              <label className="label">Responsável</label>
-              <Select value={state.responsavelId} onChange={(event) => setFilter("responsavelId", event.target.value)}>
-                <option value="all">Todos</option>
-                {options.responsaveis.map(([id, name]) => (
-                  <option key={id} value={id}>
-                    {name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div>
-              <label className="label">Status</label>
-              <Select value={state.status} onChange={(event) => setFilter("status", event.target.value as typeof state.status)}>
-                <option value="active">Ativos</option>
-                <option value="archived">Arquivados</option>
-                <option value="all">Todos</option>
-              </Select>
-            </div>
-
-            <div>
-              <label className="label">Prazo</label>
-              <Select value={state.prazo} onChange={(event) => setFilter("prazo", event.target.value as typeof state.prazo)}>
-                <option value="all">Todos</option>
-                <option value="overdue">Vencidos</option>
-                <option value="today">Hoje</option>
-                <option value="next7">Próximos 7 dias</option>
-                <option value="none">Sem prazo</option>
-              </Select>
-            </div>
+      <div className="clientes-filter-bar">
+        <div className="clientes-toolbar">
+          <div className="clientes-search-input clientes-search-field">
+            <Search className="h-4 w-4" />
+            <Input
+              ref={searchRef}
+              placeholder="Buscar cliente, CNPJ, WhatsApp…  (⌘/Ctrl + K)"
+              value={state.search}
+              onChange={(event) => setFilter("search", event.target.value)}
+              aria-label="Busca"
+            />
           </div>
 
-          <div className="clientes-filter-actions">
-            <Button type="button" variant="secondary" onClick={() => setAdvancedOpen((value) => !value)}>
+          <Select
+            value={state.period}
+            onChange={(event) => setFilter("period", event.target.value as typeof state.period)}
+            aria-label="Período"
+            className="clientes-toolbar-select"
+          >
+            {clientesPeriodPresets.map((preset) => (
+              <option key={preset.value} value={preset.value}>
+                {preset.label}
+              </option>
+            ))}
+          </Select>
+
+          {state.period === "monthPick" ? (
+            <Select
+              value={String(state.monthIndex)}
+              onChange={(event) => setFilter("monthIndex", Number(event.target.value))}
+              aria-label="Mês"
+              className="clientes-toolbar-select"
+            >
+              {monthOptions.map((label, idx) => (
+                <option key={label} value={idx}>
+                  {label} {currentYear}
+                </option>
+              ))}
+            </Select>
+          ) : null}
+
+          {state.period === "custom" ? (
+            <>
+              <Input
+                type="date"
+                value={state.periodFrom}
+                onChange={(event) => setFilter("periodFrom", event.target.value)}
+                aria-label="De"
+                className="clientes-toolbar-date"
+              />
+              <Input
+                type="date"
+                value={state.periodTo}
+                onChange={(event) => setFilter("periodTo", event.target.value)}
+                aria-label="Até"
+                className="clientes-toolbar-date"
+              />
+            </>
+          ) : null}
+
+          <Select
+            value={state.stageId}
+            onChange={(event) => setFilter("stageId", event.target.value)}
+            aria-label="Etapa"
+            className="clientes-toolbar-select"
+          >
+            <option value="all">Etapa: todas</option>
+            {options.stages.map((stage) => (
+              <option key={stage.id} value={stage.id}>
+                {stage.name}
+              </option>
+            ))}
+          </Select>
+
+          <Select
+            value={state.responsavelId}
+            onChange={(event) => setFilter("responsavelId", event.target.value)}
+            aria-label="Responsável"
+            className="clientes-toolbar-select"
+          >
+            <option value="all">Responsável: todos</option>
+            {options.responsaveis.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </Select>
+
+          <div className="clientes-toolbar-actions">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setAdvancedOpen((value) => !value)}
+              aria-expanded={advancedOpen}
+              aria-label="Filtros avançados"
+            >
               <SlidersHorizontal className="h-4 w-4" />
-              Filtros avançados
-              <ChevronDown className={`h-4 w-4 ${advancedOpen ? "clientes-rotate" : ""}`} />
+              <span className="clientes-toolbar-label">Filtros</span>
+              {activeFilterChips.length > 0 ? (
+                <span className="clientes-chip-count">{activeFilterChips.length}</span>
+              ) : null}
+              <ChevronDown className={`h-3.5 w-3.5 ${advancedOpen ? "clientes-rotate" : ""}`} />
             </Button>
             <div className="relative">
-              <Button type="button" variant="outline" onClick={() => setColumnsOpen((value) => !value)}>
-                <Settings2 className="h-4 w-4" /> Colunas
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setColumnsOpen((value) => !value)}
+                aria-label="Colunas"
+              >
+                <Settings2 className="h-4 w-4" />
+                <span className="clientes-toolbar-label">Colunas</span>
               </Button>
               {columnsOpen ? (
                 <div className="ds-popover-content clientes-columns-popover">
@@ -418,64 +411,86 @@ export function ClientesDashboard({ initialData }: Props) {
                 </div>
               ) : null}
             </div>
-            <Button type="button" variant="ghost" onClick={clearAllFilters}>
-              Limpar filtros
-            </Button>
+            {activeFilterChips.length > 0 ? (
+              <Button type="button" variant="ghost" size="sm" onClick={clearAllFilters}>
+                <X className="h-3.5 w-3.5" />
+                <span className="clientes-toolbar-label">Limpar</span>
+              </Button>
+            ) : null}
           </div>
+        </div>
 
-          {advancedOpen ? (
-            <div className="clientes-advanced-grid">
-              <Select value={state.segmento} onChange={(event) => setFilter("segmento", event.target.value)} aria-label="Segmento">
-                <option value="all">Segmento: todos</option>
-                {options.segmentos.map((item) => <option key={item} value={item}>{item}</option>)}
-              </Select>
-              <Select value={state.subsegmento} onChange={(event) => setFilter("subsegmento", event.target.value)} aria-label="Subsegmento">
-                <option value="all">Subsegmento: todos</option>
-                {options.subsegmentos.map((item) => <option key={item} value={item}>{item}</option>)}
-              </Select>
-              <Select value={state.celebridade} onChange={(event) => setFilter("celebridade", event.target.value)} aria-label="Celebridade">
-                <option value="all">Celebridade: todas</option>
-                {options.celebridades.map((item) => <option key={item} value={item}>{item}</option>)}
-              </Select>
-              <Select value={state.praca} onChange={(event) => setFilter("praca", event.target.value)} aria-label="Praça">
-                <option value="all">Praça: todas</option>
-                {options.pracas.map((item) => <option key={item} value={item}>{item}</option>)}
-              </Select>
-              <Select value={state.classificacao} onChange={(event) => setFilter("classificacao", event.target.value)} aria-label="Classificação">
-                <option value="all">Classificação: todas</option>
-                {options.classificacoes.map((item) => <option key={item} value={item}>{item}</option>)}
-              </Select>
-              <Input type="number" placeholder="Valor mínimo" value={state.valorMin} onChange={(event) => setFilter("valorMin", event.target.value)} />
-              <Input type="number" placeholder="Valor máximo" value={state.valorMax} onChange={(event) => setFilter("valorMax", event.target.value)} />
-              <Input type="number" placeholder="Dias mín. na etapa" value={state.diasMin} onChange={(event) => setFilter("diasMin", event.target.value)} />
-              <Input type="number" placeholder="Dias máx. na etapa" value={state.diasMax} onChange={(event) => setFilter("diasMax", event.target.value)} />
-              <label className="clientes-check">
-                <input type="checkbox" checked={state.tarefaUrgente} onChange={(event) => setFilter("tarefaUrgente", event.target.checked)} />
-                Com tarefa urgente
-              </label>
-              <label className="clientes-check">
-                <input type="checkbox" checked={state.semResponsavel} onChange={(event) => setFilter("semResponsavel", event.target.checked)} />
-                Sem responsável
-              </label>
-              <label className="clientes-check">
-                <input type="checkbox" checked={state.comReuniao} onChange={(event) => setFilter("comReuniao", event.target.checked)} />
-                Com reunião agendada
-              </label>
-            </div>
-          ) : null}
-
-          {activeFilterChips.length > 0 ? (
-            <div className="clientes-filter-chips">
-              {activeFilterChips.map((chip) => (
-                <button key={`${chip.key}-${chip.label}`} type="button" onClick={() => clearFilter(chip.key)}>
-                  {chip.label}
-                  <X className="h-3 w-3" />
-                </button>
+        {advancedOpen ? (
+          <div className="clientes-advanced-grid">
+            <Select value={state.periodField} onChange={(event) => setFilter("periodField", event.target.value as ClientesPeriodField)} aria-label="Filtrar por data de">
+              {clientesPeriodFieldOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  Data: {option.label}
+                </option>
               ))}
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+            </Select>
+            <Select value={state.status} onChange={(event) => setFilter("status", event.target.value as typeof state.status)} aria-label="Status">
+              <option value="active">Status: ativos</option>
+              <option value="archived">Status: arquivados</option>
+              <option value="all">Status: todos</option>
+            </Select>
+            <Select value={state.prazo} onChange={(event) => setFilter("prazo", event.target.value as typeof state.prazo)} aria-label="Prazo">
+              <option value="all">Prazo: todos</option>
+              <option value="overdue">Prazo: vencidos</option>
+              <option value="today">Prazo: hoje</option>
+              <option value="next7">Prazo: próximos 7 dias</option>
+              <option value="none">Prazo: sem prazo</option>
+            </Select>
+            <Select value={state.segmento} onChange={(event) => setFilter("segmento", event.target.value)} aria-label="Segmento">
+              <option value="all">Segmento: todos</option>
+              {options.segmentos.map((item) => <option key={item} value={item}>{item}</option>)}
+            </Select>
+            <Select value={state.subsegmento} onChange={(event) => setFilter("subsegmento", event.target.value)} aria-label="Subsegmento">
+              <option value="all">Subsegmento: todos</option>
+              {options.subsegmentos.map((item) => <option key={item} value={item}>{item}</option>)}
+            </Select>
+            <Select value={state.celebridade} onChange={(event) => setFilter("celebridade", event.target.value)} aria-label="Celebridade">
+              <option value="all">Celebridade: todas</option>
+              {options.celebridades.map((item) => <option key={item} value={item}>{item}</option>)}
+            </Select>
+            <Select value={state.praca} onChange={(event) => setFilter("praca", event.target.value)} aria-label="Praça">
+              <option value="all">Praça: todas</option>
+              {options.pracas.map((item) => <option key={item} value={item}>{item}</option>)}
+            </Select>
+            <Select value={state.classificacao} onChange={(event) => setFilter("classificacao", event.target.value)} aria-label="Classificação">
+              <option value="all">Classificação: todas</option>
+              {options.classificacoes.map((item) => <option key={item} value={item}>{item}</option>)}
+            </Select>
+            <Input type="number" placeholder="Valor mínimo" value={state.valorMin} onChange={(event) => setFilter("valorMin", event.target.value)} />
+            <Input type="number" placeholder="Valor máximo" value={state.valorMax} onChange={(event) => setFilter("valorMax", event.target.value)} />
+            <Input type="number" placeholder="Dias mín. na etapa" value={state.diasMin} onChange={(event) => setFilter("diasMin", event.target.value)} />
+            <Input type="number" placeholder="Dias máx. na etapa" value={state.diasMax} onChange={(event) => setFilter("diasMax", event.target.value)} />
+            <label className="clientes-check">
+              <input type="checkbox" checked={state.tarefaUrgente} onChange={(event) => setFilter("tarefaUrgente", event.target.checked)} />
+              Com tarefa urgente
+            </label>
+            <label className="clientes-check">
+              <input type="checkbox" checked={state.semResponsavel} onChange={(event) => setFilter("semResponsavel", event.target.checked)} />
+              Sem responsável
+            </label>
+            <label className="clientes-check">
+              <input type="checkbox" checked={state.comReuniao} onChange={(event) => setFilter("comReuniao", event.target.checked)} />
+              Com reunião agendada
+            </label>
+          </div>
+        ) : null}
+
+        {activeFilterChips.length > 0 ? (
+          <div className="clientes-filter-chips">
+            {activeFilterChips.map((chip) => (
+              <button key={`${chip.key}-${chip.label}`} type="button" onClick={() => clearFilter(chip.key)}>
+                {chip.label}
+                <X className="h-3 w-3" />
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
 
       <Card className="panel-card clientes-table-card">
         <CardHeader>
