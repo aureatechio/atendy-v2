@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Funil de Produção · Aceleraí</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body {
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    button { font-family: inherit; cursor: pointer; }
+    a { text-decoration: none; color: inherit; }
+
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-2: #f1f5f9;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --text-subtle: #94a3b8;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --primary-soft: #eef2ff;
+      --success: #10b981;
+      --success-soft: #d1fae5;
+      --warning: #f59e0b;
+      --warning-soft: #fef3c7;
+      --danger: #ef4444;
+      --danger-soft: #fee2e2;
+      --info: #0ea5e9;
+      --info-soft: #e0f2fe;
+      --purple: #8b5cf6;
+      --purple-soft: #ede9fe;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
+      --shadow-lg: 0 12px 28px rgba(15, 23, 42, 0.08);
+      --radius-sm: 6px;
+      --radius: 10px;
+      --radius-lg: 14px;
+      --sidebar-w: 232px;
+      --header-h: 64px;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: var(--sidebar-w) 1fr;
+      min-height: 100vh;
+    }
+
+    /* === Sidebar === */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--border);
+      height: var(--header-h);
+    }
+    .brand-logo {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      display: grid; place-items: center; color: white;
+      font-weight: 700; font-size: 13px; letter-spacing: -0.02em;
+    }
+    .brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; }
+    .brand-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+    .nav { padding: 16px 12px; flex: 1; overflow-y: auto; }
+    .nav-section { margin-bottom: 18px; }
+    .nav-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; color: var(--text-subtle); padding: 0 10px 6px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: var(--radius-sm);
+      color: var(--text-muted); font-weight: 500; font-size: 13.5px;
+      cursor: pointer; transition: all 0.12s ease;
+    }
+    .nav-item:hover { background: var(--surface-2); color: var(--text); }
+    .nav-item.active { background: var(--primary-soft); color: var(--primary-hover); }
+    .nav-item.active svg { color: var(--primary); }
+    .nav-item svg { width: 16px; height: 16px; color: var(--text-subtle); flex-shrink: 0; }
+    .nav-badge {
+      margin-left: auto; background: var(--surface-2); color: var(--text-muted);
+      font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+    }
+    .nav-item.active .nav-badge { background: white; color: var(--primary); }
+    .sidebar-footer { padding: 12px; border-top: 1px solid var(--border); }
+    .user-chip {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px; border-radius: var(--radius); cursor: pointer;
+    }
+    .user-chip:hover { background: var(--surface-2); }
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, #f59e0b, #ef4444);
+      color: white; display: grid; place-items: center;
+      font-weight: 600; font-size: 12px;
+    }
+    .user-info { line-height: 1.2; min-width: 0; flex: 1; }
+    .user-name { font-weight: 600; font-size: 13px; }
+    .user-email { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* === Main === */
+    .main { display: flex; flex-direction: column; min-width: 0; }
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      height: var(--header-h);
+      padding: 0 28px;
+      display: flex; align-items: center; gap: 16px;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .header-title { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+    .header-breadcrumb { color: var(--text-muted); font-size: 13px; }
+    .breadcrumb-sep { margin: 0 8px; color: var(--text-subtle); }
+
+    .content {
+      padding: 28px;
+      display: flex; flex-direction: column;
+      gap: 20px;
+      flex: 1; min-width: 0;
+      max-width: 1400px;
+      width: 100%;
+    }
+
+    .page-title {
+      font-size: 24px; font-weight: 700; letter-spacing: -0.02em;
+      margin: 0 0 4px;
+    }
+    .page-sub { color: var(--text-muted); font-size: 14px; }
+    .page-header-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .page-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+    /* === Period picker === */
+    .period-picker { position: relative; }
+    .period-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 36px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .period-btn:hover { background: var(--surface-2); border-color: var(--border-strong); }
+    .period-btn svg { width: 14px; height: 14px; color: var(--text-muted); }
+    .period-btn.active {
+      background: var(--primary-soft);
+      color: var(--primary-hover);
+      border-color: var(--primary);
+    }
+    .period-btn.active svg { color: var(--primary); }
+    .period-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      width: 280px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      padding: 6px;
+      z-index: 100;
+    }
+    .period-menu[hidden] { display: none !important; }
+    .period-option {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 8px 10px;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .period-option:hover { background: var(--surface-2); }
+    .period-option.selected { background: var(--primary-soft); color: var(--primary-hover); font-weight: 500; }
+    .period-divider { height: 1px; background: var(--border); margin: 6px 0; }
+    .period-custom { padding: 6px 10px 4px; }
+    .period-custom label {
+      font-size: 11px; font-weight: 600;
+      color: var(--text-subtle);
+      text-transform: uppercase; letter-spacing: 0.04em;
+      display: block; margin-bottom: 6px;
+    }
+    .period-range {
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 8px;
+    }
+    .period-range input {
+      flex: 1;
+      height: 30px;
+      padding: 0 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+      background: var(--surface);
+      color: var(--text);
+    }
+    .period-range input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+    }
+    .period-range span { color: var(--text-subtle); font-size: 12px; }
+    .period-apply {
+      width: 100%;
+      height: 30px;
+      background: var(--text);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .period-apply:hover { background: #1e293b; }
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 36px;
+      padding: 0 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s;
+      text-decoration: none;
+    }
+    .btn-action:hover { background: var(--surface-2); border-color: var(--border-strong); }
+    .btn-action svg { width: 14px; height: 14px; }
+
+    /* === Full view mode === */
+    body.full-view .sidebar,
+    body.full-view .header { display: none; }
+    body.full-view .app { grid-template-columns: 1fr; }
+    body.full-view .content { max-width: none; padding: 24px 32px; }
+    body.full-view .page-header-row { margin-bottom: 4px; }
+    body.full-view .btn-action[href="?view=full"] { display: none; }
+
+    /* === KPIs === */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+    @media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .kpi-grid { grid-template-columns: 1fr; } }
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .kpi-label { font-size: 12.5px; color: var(--text-muted); font-weight: 500; }
+    .kpi-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+    .kpi-foot { font-size: 12px; color: var(--text-muted); }
+    .kpi-icon-row { display: flex; align-items: center; justify-content: space-between; }
+    .kpi-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: grid; place-items: center;
+    }
+    .kpi-icon svg { width: 16px; height: 16px; }
+    .kpi-icon.indigo { background: var(--primary-soft); color: var(--primary-hover); }
+    .kpi-icon.green { background: var(--success-soft); color: var(--success); }
+    .kpi-icon.purple { background: var(--purple-soft); color: var(--purple); }
+    .kpi-icon.orange { background: var(--warning-soft); color: var(--warning); }
+
+    /* === Section card === */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 22px 24px;
+    }
+    .section-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 18px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .section-title {
+      font-size: 16px; font-weight: 600; letter-spacing: -0.01em;
+      margin: 0;
+    }
+    .section-sub { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+    .section-controls {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .toggle-group {
+      display: inline-flex;
+      background: var(--surface-2);
+      border-radius: 8px;
+      padding: 3px;
+    }
+    .toggle-chip {
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 6px;
+      color: var(--text-muted);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      transition: all 0.12s;
+    }
+    .toggle-chip.active {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* === Funnel rows === */
+    .funnel { display: flex; flex-direction: column; gap: 6px; }
+    .stage-row {
+      position: relative;
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      transition: all 0.12s;
+    }
+    .stage-row:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateX(2px);
+    }
+    .stage-row.empty {
+      opacity: 0.55;
+    }
+    .stage-num {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: grid; place-items: center;
+      color: white; font-weight: 700; font-size: 13px;
+      background: var(--stage-color);
+      box-shadow: 0 2px 6px color-mix(in srgb, var(--stage-color) 30%, transparent);
+    }
+    .stage-info {
+      min-width: 0;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .stage-name-row {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .stage-name {
+      font-weight: 600; font-size: 14px; color: var(--text);
+    }
+    .stage-final-badge {
+      font-size: 10.5px; font-weight: 600; padding: 2px 7px;
+      border-radius: 999px;
+      background: var(--success-soft); color: #047857;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .bottleneck-flag {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10.5px; font-weight: 600; padding: 2px 7px;
+      border-radius: 999px;
+      background: var(--danger-soft); color: #b91c1c;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .bottleneck-flag svg { width: 11px; height: 11px; }
+
+    .stage-bar-wrap {
+      position: relative;
+      height: 8px;
+      background: var(--surface-2);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .stage-bar {
+      position: absolute; inset: 0 auto 0 0;
+      height: 100%;
+      border-radius: 999px;
+      background: var(--stage-color);
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .stage-meta {
+      display: flex; align-items: center; gap: 18px;
+      font-size: 12px; color: var(--text-muted);
+    }
+    .stage-meta strong { color: var(--text); font-weight: 600; }
+    .meta-block { display: flex; flex-direction: column; line-height: 1.2; }
+    .meta-label { font-size: 10.5px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.04em; }
+    .meta-value { font-size: 13px; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+    .meta-value.muted { color: var(--text-subtle); font-weight: 500; }
+
+    .stage-numbers {
+      text-align: right;
+      display: flex; flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+      min-width: 100px;
+    }
+    .stage-count {
+      font-size: 24px; font-weight: 700; letter-spacing: -0.02em;
+      color: var(--stage-color);
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .stage-count-label { font-size: 11px; color: var(--text-muted); }
+
+    @media (max-width: 768px) {
+      .stage-row { grid-template-columns: 32px 1fr; }
+      .stage-numbers { grid-column: 2; align-items: flex-start; }
+      .stage-meta { flex-wrap: wrap; gap: 12px; }
+    }
+
+    /* === Flow funnel section (light, minimalista) === */
+    .flow-section {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .flow-funnel-scroll {
+      overflow-x: auto;
+      overflow-y: hidden;
+      position: relative;
+      margin: 0 -24px -22px;
+      padding: 0 24px 22px;
+    }
+    .flow-funnel-scroll::-webkit-scrollbar { height: 8px; }
+    .flow-funnel-scroll::-webkit-scrollbar-track { background: transparent; }
+    .flow-funnel-scroll::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 999px;
+    }
+    .flow-funnel-scroll::-webkit-scrollbar-thumb:hover {
+      background: var(--text-subtle);
+    }
+
+    .flow-funnel {
+      position: relative;
+      display: flex;
+      align-items: stretch;
+      min-width: 100%;
+    }
+    .flow-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .flow-col {
+      flex: 0 0 var(--col-w, 180px);
+      min-width: var(--col-w, 180px);
+      padding: 18px 12px 16px;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      border-right: 1px solid var(--border);
+      transition: transform 0.18s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.18s;
+      transform-origin: center;
+    }
+    .flow-col:last-child { border-right: none; }
+    .flow-col:hover {
+      transform: scale(1.06);
+      z-index: 5;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+      border-radius: 12px;
+      border-right-color: transparent;
+      outline: 1px solid var(--border);
+      outline-offset: -1px;
+    }
+    .flow-col:hover + .flow-col { border-left-color: transparent; }
+
+    .flow-col-top {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 6px;
+      text-align: center;
+    }
+    .flow-icon {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      display: grid; place-items: center;
+      color: white;
+      font-weight: 700;
+      font-size: 12px;
+      background: var(--col-color);
+      box-shadow: 0 2px 6px color-mix(in srgb, var(--col-color) 30%, transparent);
+    }
+    .flow-stage-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      line-height: 1.25;
+      max-width: 124px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .flow-col-mid {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 220px;
+      position: relative;
+      width: 100%;
+      padding: 6px 0;
+    }
+    .flow-headline {
+      text-align: center;
+      padding-bottom: 8px;
+    }
+    .flow-count-big {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .flow-count-big.zero { color: var(--text-subtle); font-weight: 700; }
+    .flow-count-label {
+      font-size: 10.5px;
+      color: var(--text-subtle);
+      margin-top: 4px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .flow-pct {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+    }
+    .flow-pct.zero { color: var(--text-subtle); }
+    .flow-pct::before {
+      content: "";
+      display: inline-block;
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--col-color);
+      margin-right: 6px;
+      vertical-align: middle;
+      transform: translateY(-1px);
+    }
+
+    .flow-col-bot {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 6px;
+      width: 100%;
+      padding-top: 10px;
+      border-top: 1px dashed var(--border);
+      font-size: 11.5px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+    .flow-money {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.01em;
+      font-variant-numeric: tabular-nums;
+    }
+    .flow-money-label {
+      font-size: 9.5px;
+      color: var(--text-subtle);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-top: -2px;
+    }
+
+    /* === Tooltips === */
+    .tip { position: relative; cursor: help; }
+    .tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%) translateY(4px);
+      background: #0f172a;
+      color: white;
+      font-size: 11.5px;
+      font-weight: 400;
+      line-height: 1.45;
+      letter-spacing: 0;
+      text-transform: none;
+      padding: 8px 10px;
+      border-radius: 6px;
+      white-space: pre-line;
+      width: max-content;
+      max-width: 240px;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s, transform 0.15s;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+      z-index: 100;
+    }
+    .tip::before {
+      content: "";
+      position: absolute;
+      bottom: calc(100% + 2px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 5px solid #0f172a;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s;
+      z-index: 101;
+    }
+    .tip:hover::after,
+    .tip:hover::before {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) translateY(0);
+    }
+    .flow-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .flow-time-icon {
+      width: 11px; height: 11px;
+      flex-shrink: 0;
+      opacity: 0.6;
+    }
+    .flow-bottleneck {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: var(--danger-soft);
+      color: #b91c1c;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .flow-bottleneck svg { width: 10px; height: 10px; }
+
+    /* === Helper === */
+    .empty-state {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- ============ SIDEBAR ============ -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">A</div>
+        <div>
+          <div class="brand-name">Aceleraí</div>
+          <div class="brand-sub">Gestão de Vendas</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <div class="nav-section">
+          <div class="nav-label">Geral</div>
+          <a class="nav-item" href="index.html">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+            Dashboard
+          </a>
+          <a class="nav-item" href="index.html">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            Compras Pagas
+            <span class="nav-badge">396</span>
+          </a>
+          <a class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            Clientes
+          </a>
+          <a class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            Vendedores
+          </a>
+          <a class="nav-item active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18M5 4v16a1 1 0 001 1h12a1 1 0 001-1V4M9 9h6M9 13h6M9 17h6"/></svg>
+            Funil de Produção
+            <span class="nav-badge" id="navBadge">601</span>
+          </a>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-label">Análises</div>
+          <a class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            Relatórios
+          </a>
+          <a class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>
+            Insights
+          </a>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-label">Sistema</div>
+          <a class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Configurações
+          </a>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-chip">
+          <div class="avatar">AD</div>
+          <div class="user-info">
+            <div class="user-name">Anderson</div>
+            <div class="user-email">anderson.domingos@aureatech.io</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ============ MAIN ============ -->
+    <div class="main">
+      <header class="header">
+        <span class="header-breadcrumb">Produção</span>
+        <span class="breadcrumb-sep">/</span>
+        <span class="header-title">Funil de Produção</span>
+      </header>
+
+      <main class="content">
+        <div class="page-header-row">
+          <div>
+            <h1 class="page-title">Funil de Produção</h1>
+            <p class="page-sub">Distribuição atual dos clientes pelas 20 etapas do funil do Atendy e tempo médio de permanência</p>
+          </div>
+          <div class="page-actions">
+            <div class="period-picker" id="periodPicker">
+              <button class="period-btn" id="periodBtn" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <span id="periodLabel">Todo o período</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:.6;width:12px;height:12px"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+              </button>
+              <div class="period-menu" id="periodMenu" hidden>
+                <button class="period-option" data-period="all">Todo o período</button>
+                <button class="period-option" data-period="month">Mês atual</button>
+                <button class="period-option" data-period="lastMonth">Mês anterior</button>
+                <button class="period-option" data-period="year">Este ano</button>
+                <div class="period-divider"></div>
+                <div class="period-custom">
+                  <label>Personalizado</label>
+                  <div class="period-range">
+                    <input type="date" id="periodFrom" />
+                    <span>—</span>
+                    <input type="date" id="periodTo" />
+                  </div>
+                  <button class="period-apply" id="periodApply">Aplicar</button>
+                </div>
+              </div>
+            </div>
+            <a class="btn-action" href="?view=full" target="_blank" rel="noopener" title="Abrir em tela cheia (nova aba)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+              Tela cheia
+            </a>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div class="kpi-grid">
+          <div class="kpi">
+            <div class="kpi-icon-row">
+              <span class="kpi-label">Total no funil</span>
+              <div class="kpi-icon indigo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiTotal">0</div>
+            <div class="kpi-foot">clientes únicos no funil ativo</div>
+          </div>
+
+          <div class="kpi">
+            <div class="kpi-icon-row">
+              <span class="kpi-label">Valor no funil</span>
+              <div class="kpi-icon orange">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiValor">R$ 0</div>
+            <div class="kpi-foot" id="kpiValorSub">soma de vendas efetivas em produção</div>
+          </div>
+
+          <div class="kpi">
+            <div class="kpi-icon-row">
+              <span class="kpi-label">Finalizados</span>
+              <div class="kpi-icon green">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiFinal">0</div>
+            <div class="kpi-foot">etapa 20</div>
+          </div>
+
+          <div class="kpi">
+            <div class="kpi-icon-row">
+              <span class="kpi-label">Lead time médio</span>
+              <div class="kpi-icon purple">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </div>
+            </div>
+            <div class="kpi-value" id="kpiLead">— d</div>
+            <div class="kpi-foot">média dos finalizados</div>
+          </div>
+        </div>
+
+        <!-- Flow Funnel -->
+        <div class="section flow-section">
+          <div class="section-head">
+            <div>
+              <h2 class="section-title">Visão geral do funil</h2>
+              <div class="section-sub">Mesma lógica do app: contagem via <code style="font-family:'JetBrains Mono',monospace;font-size:11.5px;background:var(--surface-2);padding:1px 5px;border-radius:4px">pipeline_stage_counts</code> · um cliente pode aparecer em múltiplas etapas se tem tasks ativas</div>
+            </div>
+            <div class="section-controls">
+              <div class="toggle-group" id="scaleToggle">
+                <button class="toggle-chip active tip" data-scale="sqrt" data-tip="Aplica raiz quadrada na proporção. Etapas pequenas ficam mais visíveis. Boa para comparar etapas com volumes muito diferentes.">Visual (sqrt)</button>
+                <button class="toggle-chip tip" data-scale="linear" data-tip="Largura exatamente proporcional ao número de clientes. Mostra a realidade absoluta — etapas com poucos clientes ficam quase invisíveis se houver muita disparidade.">Real (linear)</button>
+              </div>
+            </div>
+          </div>
+          <div class="flow-funnel-scroll">
+            <div class="flow-funnel" id="flowFunnel"></div>
+          </div>
+        </div>
+
+        <!-- Detailed list -->
+        <div class="section">
+          <div class="section-head">
+            <div>
+              <h2 class="section-title">Detalhamento por etapa</h2>
+              <div class="section-sub">Tempo médio dos que estão atualmente na etapa vs. média histórica de conclusão</div>
+            </div>
+          </div>
+          <div class="funnel" id="funnel"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script id="funilData" type="application/json">{"stages_meta": [{"slug": "mais-novo", "name": "Mais Novo", "order_index": 1, "color": "#22c55e", "is_final": false}, {"slug": "onboarding", "name": "Onboarding", "order_index": 2, "color": "#8b5cf6", "is_final": false}, {"slug": "roteiro", "name": "Roteiro", "order_index": 3, "color": "#ec4899", "is_final": false}, {"slug": "roteiro-em-aprovacao", "name": "Roteiro em Aprovação", "order_index": 4, "color": "#f59e0b", "is_final": false}, {"slug": "atendimento", "name": "Atendimento", "order_index": 5, "color": "#f59e0b", "is_final": false}, {"slug": "criacao", "name": "Criação", "order_index": 6, "color": "#ec4899", "is_final": false}, {"slug": "ajuste-roteiro", "name": "Ajuste Roteiro", "order_index": 7, "color": "#f472b6", "is_final": false}, {"slug": "design", "name": "Design", "order_index": 8, "color": "#06b6d4", "is_final": false}, {"slug": "locucao", "name": "Locução", "order_index": 9, "color": "#8b5cf6", "is_final": false}, {"slug": "edit", "name": "Edit", "order_index": 10, "color": "#6366f1", "is_final": false}, {"slug": "video", "name": "Vídeo", "order_index": 11, "color": "#f97316", "is_final": false}, {"slug": "mix", "name": "Mix", "order_index": 12, "color": "#0ea5e9", "is_final": false}, {"slug": "finalizacao", "name": "Finalização", "order_index": 13, "color": "#14b8a6", "is_final": false}, {"slug": "delivery", "name": "Delivery", "order_index": 14, "color": "#06b6d4", "is_final": false}, {"slug": "aguardando", "name": "Aguardando", "order_index": 15, "color": "#d946ef", "is_final": false}, {"slug": "ajuste-video", "name": "Ajuste Vídeo", "order_index": 16, "color": "#fb923c", "is_final": false}, {"slug": "ajuste-design", "name": "Ajuste Design", "order_index": 17, "color": "#14b8a6", "is_final": false}, {"slug": "celebridade", "name": "Celebridade", "order_index": 18, "color": "#a855f7", "is_final": false}, {"slug": "aprovado-celebridade", "name": "Retorno da Celebridade", "order_index": 19, "color": "#10b981", "is_final": false}, {"slug": "finalizado", "name": "Finalizado", "order_index": 20, "color": "#6b7280", "is_final": true}], "rows": [{"c": "5c6443fa", "s": "roteiro-em-aprovacao", "d": 43.2, "a": "2026-03-07", "l": "3f4cdda3-68c6-4193-ab26-891f983580e4"}, {"c": "5bff171b", "s": "roteiro-em-aprovacao", "d": 46.05, "a": "2026-03-20", "l": null}, {"c": "5ba078c1", "s": "design", "d": 59.16, "a": "2026-03-17", "l": null}, {"c": "7d5ccb33", "s": "aguardando", "d": 84.0, "a": "2026-02-19", "l": "06d4ec34-4fbd-4d20-b920-0a3df4880362"}, {"c": "f6f1b747", "s": "edit", "d": 2.89, "a": "2026-02-11", "l": null}, {"c": "c8ed5ecb", "s": "onboarding", "d": 1.09, "a": "2026-05-13", "l": "38fbc55b-ca14-4e81-98be-42c106bacf9a"}, {"c": "1bccd2fc", "s": "ajuste-design", "d": 3.84, "a": "2026-04-30", "l": "3ce398b5-3ecd-4bde-aa88-d67b1efb27f2"}, {"c": "fddf46ed", "s": "onboarding", "d": 38.04, "a": "2026-03-05", "l": null}, {"c": "6780adf3", "s": "onboarding", "d": 29.15, "a": "2026-04-14", "l": "c5cbeb96-385e-4d5b-b773-d122c9088786"}, {"c": "3574caf7", "s": "design", "d": 22.2, "a": "2026-04-22", "l": "64327384-017f-4e86-8825-3e4634868c71"}, {"c": "4d97fa46", "s": "onboarding", "d": 45.74, "a": "2026-03-27", "l": "ea686ed0-0a94-4164-8dfa-77320db46f2e"}, {"c": "ff42d2ab", "s": "onboarding", "d": 48.83, "a": "2026-03-27", "l": "4fbf99d3-2170-404f-9b6e-0abbf9ef68bb"}, {"c": "15e14be2", "s": "celebridade", "d": 9.97, "a": "2026-02-23", "l": null}, {"c": "76115f5b", "s": "onboarding", "d": 83.6, "a": "2026-02-21", "l": null}, {"c": "98720de4", "s": "onboarding", "d": 16.81, "a": "2026-04-17", "l": "f1cd01e6-8941-49ab-a1e6-ed45c93155dd"}, {"c": "08d78c68", "s": "celebridade", "d": 6.93, "a": "2026-03-20", "l": null}, {"c": "0a710239", "s": "edit", "d": 31.85, "a": "2026-03-18", "l": "53bbcd40-df99-43f6-afbf-556342eeeb49"}, {"c": "02e4e3e7", "s": "criacao", "d": 17.13, "a": "2026-03-20", "l": "734ef3d7-2575-4133-bc50-0edb3f59cb5d"}, {"c": "f5f09b23", "s": "design", "d": 2.85, "a": "2026-02-18", "l": null}, {"c": "a7e0f8c0", "s": "aprovado-celebridade", "d": 3.82, "a": "2026-03-10", "l": null}, {"c": "43a1c677", "s": "onboarding", "d": 44.08, "a": "2026-03-30", "l": "95df9689-037d-4595-b30c-294328766ebd"}, {"c": "bedd2bbd", "s": "onboarding", "d": 83.6, "a": "2026-02-21", "l": null}, {"c": "b2e810c1", "s": "celebridade", "d": 15.66, "a": "2026-03-02", "l": null}, {"c": "8767bf90", "s": "roteiro-em-aprovacao", "d": 71.19, "a": "2026-02-23", "l": null}, {"c": "48cba24b", "s": "delivery", "d": 15.85, "a": "2026-03-24", "l": "673f66aa-b03f-4162-ab37-7997bd260df6"}, {"c": "31a91e58", "s": "aguardando", "d": 71.18, "a": "2026-02-23", "l": null}, {"c": "6da78cd3", "s": "roteiro-em-aprovacao", "d": 36.85, "a": "2026-03-19", "l": null}, {"c": "5d0c1dc3", "s": "edit", "d": 28.25, "a": "2026-02-21", "l": null}, {"c": "ca815264", "s": "aguardando", "d": 25.06, "a": "2026-04-15", "l": "30261138-0c79-4d9c-8029-f0fcdf3d8cde"}, {"c": "4273f049", "s": "video", "d": 65.82, "a": "2026-03-09", "l": "c0463239-c6ef-488e-adb6-8bd502da3017"}, {"c": "5a6810d0", "s": "video", "d": 29.81, "a": "2026-03-27", "l": "b7a1a051-1226-4740-9e20-c57b97c535e5"}, {"c": "353baf73", "s": "ajuste-video", "d": 23.09, "a": "2026-04-10", "l": "a1ea10da-0b83-48a0-8769-4847e1bb57d1"}, {"c": "f4c2815f", "s": "ajuste-design", "d": 7.16, "a": "2026-04-09", "l": "59dcabcd-7d5b-4c55-a87a-dcc5ff3f6b0e"}, {"c": "dd34d137", "s": "onboarding", "d": 28.17, "a": "2026-04-15", "l": "402244a9-fef5-4f3f-80b5-29e11ad742be"}, {"c": "c62819f9", "s": "onboarding", "d": 44.09, "a": "2026-03-30", "l": "9f51c96a-a9fb-4c3b-85c6-7ddd7918d1eb"}, {"c": "9e728b9a", "s": "roteiro-em-aprovacao", "d": 76.81, "a": "2026-02-12", "l": null}, {"c": "2019cf4b", "s": "onboarding", "d": 83.64, "a": "2026-02-21", "l": null}, {"c": "711118fc", "s": "design", "d": 3.79, "a": "2026-05-06", "l": "e2b22ff2-709d-4692-9cbd-4cfde54f72d7"}, {"c": "cd21eb82", "s": "celebridade", "d": 22.85, "a": "2026-03-31", "l": "93c551b6-e5b6-48b7-b67e-2a910251cf0d"}, {"c": "39914b6c", "s": "video", "d": 34.9, "a": "2026-03-04", "l": "3b50b575-438d-4aac-b8c6-f762872b9b90"}, {"c": "5dacba36", "s": "onboarding", "d": 29.15, "a": "2026-04-15", "l": "7b451fdc-309a-4d85-b370-34ee8903091a"}, {"c": "44830ed2", "s": "roteiro-em-aprovacao", "d": 2.06, "a": "2026-02-26", "l": null}, {"c": "dd9782e7", "s": "roteiro-em-aprovacao", "d": 2.89, "a": "2026-02-18", "l": null}, {"c": "da00c0ef", "s": "onboarding", "d": 57.88, "a": "2026-03-18", "l": "095106ab-ec4c-41cc-a1e7-9d6a75de05a6"}, {"c": "752fba50", "s": "roteiro-em-aprovacao", "d": 1.09, "a": "2026-05-12", "l": "4998a2bb-a43d-4e6d-9dc6-4d8d33e19b26"}, {"c": "9f49dc2f", "s": "ajuste-design", "d": 14.81, "a": "2026-04-17", "l": "a8fe662b-676b-4c2b-9ed2-26886fd3decc"}, {"c": "f73fc050", "s": "onboarding", "d": 83.65, "a": "2026-02-21", "l": null}, {"c": "32755a63", "s": "design", "d": 16.88, "a": "2026-04-27", "l": "575052bb-e694-42ea-8db9-1aaf06479037"}, {"c": "494d3753", "s": "onboarding", "d": 16.84, "a": "2026-04-28", "l": "fc817d28-59aa-4362-bd06-cc54221ef99e"}, {"c": "cc513b52", "s": "celebridade", "d": 2.11, "a": "2026-04-23", "l": "3843bbf5-59df-4774-a5f0-c70f902db35f"}, {"c": "e086ae74", "s": "roteiro-em-aprovacao", "d": 50.1, "a": "2026-03-26", "l": null}, {"c": "ad3037cd", "s": "aguardando", "d": 71.79, "a": "2026-02-23", "l": null}, {"c": "1fb138f8", "s": "ajuste-roteiro", "d": 28.15, "a": "2026-04-01", "l": "7f979d07-dc07-416f-be35-67b3862222ef"}, {"c": "39914b6c", "s": "aguardando", "d": 49.84, "a": "2026-03-04", "l": "3b50b575-438d-4aac-b8c6-f762872b9b90"}, {"c": "37bf6a7c", "s": "onboarding", "d": 1.08, "a": "2026-05-08", "l": "22b361d5-1ce0-46c6-99d3-1ccd2dc2b74c"}, {"c": "c6be755b", "s": "onboarding", "d": 16.81, "a": "2026-04-28", "l": "2f8ae894-3a63-4b55-9d05-380c3acf88b1"}, {"c": "f0f0e1c2", "s": "ajuste-video", "d": 20.83, "a": "2026-04-24", "l": "41b32a04-3afd-490a-8073-5367fa9e11c4"}, {"c": "cc513b52", "s": "aguardando", "d": 16.88, "a": "2026-04-23", "l": "3843bbf5-59df-4774-a5f0-c70f902db35f"}, {"c": "b1c0c653", "s": "onboarding", "d": 8.01, "a": "2026-05-05", "l": "1bcc0e9e-ad5a-480f-8f15-63949b7bf9b3"}, {"c": "1284542b", "s": "aguardando", "d": 50.91, "a": "2026-02-27", "l": "adbaf770-a0f6-45c5-b507-ca8e88607cd4"}, {"c": "51043839", "s": "roteiro-em-aprovacao", "d": 48.79, "a": "2026-03-27", "l": "7e2f9487-a344-484b-8232-013ec163c435"}, {"c": "64ebd45d", "s": "onboarding", "d": 3.9, "a": "2026-05-08", "l": "aa67c368-76e1-4360-ac97-858faa1691a5"}, {"c": "a8407f0d", "s": "roteiro-em-aprovacao", "d": 62.91, "a": "2026-03-03", "l": null}, {"c": "9f49dc2f", "s": "video", "d": 27.81, "a": "2026-04-17", "l": "a8fe662b-676b-4c2b-9ed2-26886fd3decc"}, {"c": "78e9342c", "s": "ajuste-video", "d": 79.81, "a": "2026-02-24", "l": null}, {"c": "7eaf8168", "s": "celebridade", "d": 9.16, "a": "2026-02-25", "l": null}, {"c": "61c8b66b", "s": "onboarding", "d": 22.2, "a": "2026-04-20", "l": "5ae9b122-7191-4884-a897-344e778171ad"}, {"c": "f345d226", "s": "aguardando", "d": 83.63, "a": "2026-02-21", "l": null}, {"c": "3574caf7", "s": "edit", "d": 14.99, "a": "2026-04-22", "l": "64327384-017f-4e86-8825-3e4634868c71"}, {"c": "9db9dea1", "s": "ajuste-video", "d": 44.92, "a": "2026-02-20", "l": null}, {"c": "f6c49b0a", "s": "design", "d": 0.91, "a": "2026-05-05", "l": "5d89cd82-797d-4f09-9039-aaf8aa412ee4"}, {"c": "30721438", "s": "onboarding", "d": 56.81, "a": "2026-03-19", "l": "0bd7c08e-5a35-4bfb-a4e4-afd0e8b25a6e"}, {"c": "8ae5dd3a", "s": "onboarding", "d": 8.79, "a": "2026-05-05", "l": "b93c0c25-203f-4e3a-9a6b-525b9f26f229"}, {"c": "15b70e01", "s": "video", "d": 52.98, "a": "2026-03-20", "l": "ab3446f8-cf36-4f61-89c1-0c7561b2a6cd"}, {"c": "29757178", "s": "roteiro-em-aprovacao", "d": 78.94, "a": "2026-02-25", "l": null}, {"c": "ffc29003", "s": "roteiro-em-aprovacao", "d": 71.19, "a": "2026-02-23", "l": null}, {"c": "2bda8ccf", "s": "onboarding", "d": 70.09, "a": "2026-03-06", "l": null}, {"c": "5719a1b2", "s": "roteiro-em-aprovacao", "d": 73.03, "a": "2026-02-23", "l": null}, {"c": "d8a159da", "s": "video", "d": 28.96, "a": "2026-04-10", "l": "b5caff42-772b-44ce-9910-b9f336ed0fdc"}, {"c": "48582e10", "s": "celebridade", "d": 31.15, "a": "2026-04-09", "l": "1bcf8092-a62f-406f-a350-300d38758641"}, {"c": "7e42c4d4", "s": "aguardando", "d": 77.93, "a": "2026-02-21", "l": null}, {"c": "e417a78e", "s": "aprovado-celebridade", "d": 52.15, "a": "2026-03-20", "l": "186dd07c-526b-4666-b73a-bc73fdbc2ecc"}, {"c": "711118fc", "s": "roteiro-em-aprovacao", "d": 3.8, "a": "2026-05-06", "l": "e2b22ff2-709d-4692-9cbd-4cfde54f72d7"}, {"c": "9fe6b1db", "s": "aguardando", "d": 44.14, "a": "2026-04-01", "l": null}, {"c": "b475b1b5", "s": "delivery", "d": 17.89, "a": "2026-04-23", "l": "1905ed1b-6c01-452e-97fd-c0b01e43e4f0"}, {"c": "7fa3b7fd", "s": "finalizacao", "d": 14.99, "a": "2026-04-16", "l": "256ff17a-4eea-491c-988f-b24c51c3692c"}, {"c": "ccd1bc32", "s": "roteiro-em-aprovacao", "d": 17.77, "a": "2026-03-16", "l": "ffc7257e-f1cd-4018-8687-0029241c287c"}, {"c": "25d03a67", "s": "onboarding", "d": 95.13, "a": "2026-02-09", "l": null}, {"c": "d0c97527", "s": "onboarding", "d": 70.06, "a": "2026-03-06", "l": null}, {"c": "6c3ac84b", "s": "onboarding", "d": 78.1, "a": "2026-02-25", "l": null}, {"c": "77a16e44", "s": "mix", "d": 10.94, "a": "2026-03-17", "l": "f44a585e-b008-4b9f-aae1-9539cf85e626"}, {"c": "669ab431", "s": "onboarding", "d": 10.14, "a": "2026-04-30", "l": "9911daf9-5df7-450e-99fa-9658d6d71e00"}, {"c": "b839cccb", "s": "video", "d": 10.15, "a": "2026-03-06", "l": "46e04ad4-4864-416d-a3e2-635a76b70ec8"}, {"c": "a0bc3cdb", "s": "roteiro-em-aprovacao", "d": 8.07, "a": "2026-03-18", "l": "1b7c223c-4fe0-474a-867e-7ea28081d820"}, {"c": "68fc95a7", "s": "video", "d": 2.11, "a": "2026-02-23", "l": null}, {"c": "46d314dd", "s": "onboarding", "d": 81.17, "a": "2026-02-20", "l": null}, {"c": "e5d19d3d", "s": "onboarding", "d": 16.88, "a": "2026-04-23", "l": "3a87fee1-f3ab-4445-afba-279944f6e8ea"}, {"c": "e2e2e49d", "s": "edit", "d": 2.89, "a": "2026-05-12", "l": "d2a7bc78-6886-41d0-8009-9e5d4b1b5e63"}, {"c": "c6fb2a3a", "s": "onboarding", "d": 8.78, "a": "2026-05-05", "l": "f0b75c93-c756-4dea-9b32-ca5eaaac1188"}, {"c": "b093d904", "s": "aprovado-celebridade", "d": 2.98, "a": "2026-04-24", "l": "8d9eedf4-c42e-49b5-8622-044ebe0f7868"}, {"c": "ccbde9c8", "s": "ajuste-design", "d": 17.92, "a": "2026-03-31", "l": "a7949fb7-71f0-43c0-a361-82f22f4c21c1"}, {"c": "4da48b96", "s": "aguardando", "d": 38.1, "a": "2026-02-25", "l": null}, {"c": "5752c4ff", "s": "roteiro-em-aprovacao", "d": 0.83, "a": "2026-02-18", "l": null}, {"c": "47bba82a", "s": "aguardando", "d": 28.07, "a": "2026-02-21", "l": null}, {"c": "5067ed00", "s": "aguardando", "d": 71.99, "a": "2026-03-04", "l": null}, {"c": "f5f09b23", "s": "edit", "d": 4.14, "a": "2026-02-18", "l": null}, {"c": "d1c94025", "s": "onboarding", "d": 16.81, "a": "2026-04-24", "l": "d70fe642-073b-441d-9296-fcaafc0a962f"}, {"c": "822fc534", "s": "onboarding", "d": 85.92, "a": "2026-02-18", "l": null}, {"c": "05634d7d", "s": "delivery", "d": 27.93, "a": "2026-04-14", "l": "e31dcb09-3875-48e6-a612-c15f6c2f8ffa"}, {"c": "cabf91c8", "s": "onboarding", "d": 10.13, "a": "2026-05-04", "l": "94a3b1b5-a02b-4748-b715-77bd325f80c1"}, {"c": "763109b7", "s": "onboarding", "d": 8.76, "a": "2026-05-05", "l": "debcc00c-d941-4c20-833b-b53506ec3a5f"}, {"c": "ca815264", "s": "atendimento", "d": 15.64, "a": "2026-04-15", "l": "30261138-0c79-4d9c-8029-f0fcdf3d8cde"}, {"c": "1aa5fc14", "s": "onboarding", "d": 56.81, "a": "2026-03-18", "l": "f782b2da-b17e-4bc4-8587-9f2c2184d3c7"}, {"c": "fee5733d", "s": "aguardando", "d": 18.05, "a": "2026-04-16", "l": "f1d040e8-0014-4a9c-a4fc-877796f238e1"}, {"c": "9dd79478", "s": "aguardando", "d": 30.82, "a": "2026-02-21", "l": null}, {"c": "e8b14a7f", "s": "aguardando", "d": 30.11, "a": "2026-02-23", "l": null}, {"c": "0a296091", "s": "onboarding", "d": 84.0, "a": "2026-02-19", "l": "d7ecf085-7df3-4a29-9105-58c2c7026bed"}, {"c": "622908b3", "s": "onboarding", "d": 49.84, "a": "2026-02-21", "l": null}, {"c": "b786d61d", "s": "roteiro-em-aprovacao", "d": 38.88, "a": "2026-03-13", "l": null}, {"c": "91f8759e", "s": "roteiro-em-aprovacao", "d": 48.83, "a": "2026-03-27", "l": "c68797b9-040b-4d00-b7a9-3101b51c2004"}, {"c": "bfe8603f", "s": "roteiro-em-aprovacao", "d": 34.82, "a": "2026-04-09", "l": "3f92f9f4-ac10-4e6e-8c63-b4422a6397ae"}, {"c": "a9ab7695", "s": "onboarding", "d": 72.78, "a": "2026-03-03", "l": null}, {"c": "6243f67e", "s": "onboarding", "d": 7.1, "a": "2026-05-07", "l": "c2981e4f-cd2a-4f02-841d-8202560c8387"}, {"c": "a45232e4", "s": "onboarding", "d": 1.09, "a": "2026-05-13", "l": "071ee9c2-9166-4808-b831-14f1a5743f56"}, {"c": "99072200", "s": "roteiro-em-aprovacao", "d": 2.92, "a": "2026-03-26", "l": "b4d3890c-e00c-4d5d-85f3-c36cc2d4954c"}, {"c": "5af0fd4c", "s": "aguardando", "d": 80.7, "a": "2026-02-23", "l": null}, {"c": "5bca0c6e", "s": "onboarding", "d": 57.89, "a": "2026-03-18", "l": "fae7000f-7932-4252-9fab-caf7ff1c4b98"}, {"c": "5f465d84", "s": "onboarding", "d": 49.85, "a": "2026-03-25", "l": null}, {"c": "75a90eae", "s": "aprovado-celebridade", "d": 20.88, "a": "2026-04-24", "l": "92798538-0ee0-4ef8-b04d-6b88e166b6df"}, {"c": "f62b428d", "s": "onboarding", "d": 2.8, "a": "2026-05-11", "l": "9213c35c-e221-41f5-80c2-61db2336db0c"}, {"c": "be15093d", "s": "roteiro-em-aprovacao", "d": 66.91, "a": "2026-02-24", "l": null}, {"c": "16cb48b0", "s": "onboarding", "d": 9.81, "a": "2026-05-05", "l": "3ca4c8b9-079f-4abb-8e56-cd56ce8ae8e3"}, {"c": "19dedfb4", "s": "ajuste-video", "d": 2.12, "a": "2026-04-09", "l": null}, {"c": "02ceb2cb", "s": "roteiro-em-aprovacao", "d": 1.83, "a": "2026-04-16", "l": "f11276cc-868a-4074-bbe1-49607dc5c9c6"}, {"c": "0ca699a0", "s": "aguardando", "d": 22.85, "a": "2026-02-21", "l": null}, {"c": "f6f1b747", "s": "design", "d": 1.98, "a": "2026-02-11", "l": null}, {"c": "cbe99ad9", "s": "delivery", "d": 10.83, "a": "2026-03-12", "l": null}, {"c": "03db6ec6", "s": "onboarding", "d": 70.08, "a": "2026-03-06", "l": null}, {"c": "d653d725", "s": "delivery", "d": 1.92, "a": "2026-05-05", "l": "29a3c47c-961b-472c-b639-aba90f795dbc"}, {"c": "bc5fa865", "s": "design", "d": 2.11, "a": "2026-04-28", "l": "f8a2ca89-2f98-43f5-ba22-ec2cae4a033e"}, {"c": "52af7166", "s": "onboarding", "d": 69.95, "a": "2026-03-06", "l": null}, {"c": "0f243fde", "s": "onboarding", "d": 1.21, "a": "2026-05-12", "l": "b4f34e07-960d-470a-8286-a2b417ebf4f2"}, {"c": "b729557e", "s": "ajuste-design", "d": 3.92, "a": "2026-02-26", "l": null}, {"c": "0db32fad", "s": "video", "d": 20.96, "a": "2026-04-17", "l": "560caa39-156e-4282-9697-c79a8668d86d"}, {"c": "f62adfe2", "s": "roteiro-em-aprovacao", "d": 29.81, "a": "2026-03-25", "l": null}, {"c": "17fa38e5", "s": "edit", "d": 22.17, "a": "2026-04-22", "l": "fff9f5da-18be-43c8-8a59-88545770cf37"}, {"c": "3a3c479a", "s": "onboarding", "d": 16.82, "a": "2026-04-15", "l": "09a5c190-455b-4d3e-bc8d-717b7928bb53"}, {"c": "7a8cce9f", "s": "ajuste-design", "d": 27.81, "a": "2026-04-17", "l": "681b2649-c2d5-4a5b-b0e8-45636a2da3be"}, {"c": "316df6ae", "s": "video", "d": 16.95, "a": "2026-04-27", "l": "dfeddb81-5a70-4a43-9b7d-fbf1ee1fc519"}, {"c": "71c18d65", "s": "aguardando", "d": 83.55, "a": "2026-02-21", "l": null}, {"c": "287f01f3", "s": "ajuste-design", "d": 69.92, "a": "2026-02-26", "l": null}, {"c": "89bb1595", "s": "aguardando", "d": 71.92, "a": "2026-03-04", "l": "fff13194-0493-4201-8b60-be79b0f1e594"}, {"c": "68fc95a7", "s": "celebridade", "d": 1.1, "a": "2026-02-23", "l": null}, {"c": "a48640e7", "s": "onboarding", "d": 15.96, "a": "2026-04-25", "l": "d5154306-db4a-46f0-95d2-b284d00398b3"}, {"c": "158da39c", "s": "onboarding", "d": 8.77, "a": "2026-05-05", "l": "bc6a027e-f2c7-4154-8b20-57cd66315443"}, {"c": "c5762547", "s": "aguardando", "d": 69.93, "a": "2026-02-26", "l": null}, {"c": "c9ceea2d", "s": "aprovado-celebridade", "d": 45.88, "a": "2026-03-16", "l": "daa3d054-e938-4534-a258-1a1eb2e94a9e"}, {"c": "6421cd2d", "s": "roteiro-em-aprovacao", "d": 83.59, "a": "2026-02-21", "l": null}, {"c": "738edef1", "s": "onboarding", "d": 45.74, "a": "2026-03-27", "l": "786e76b1-7be8-4528-abe1-817480ef0a73"}, {"c": "2ce29cb2", "s": "aguardando", "d": 10.82, "a": "2026-04-24", "l": "1b128871-628d-4e39-ad81-37981996599b"}, {"c": "2655f527", "s": "onboarding", "d": 1.09, "a": "2026-05-13", "l": "d252f960-fdda-4941-b270-7685f3288fec"}, {"c": "8bbf1afd", "s": "edit", "d": 8.87, "a": "2026-04-17", "l": "7e2a914a-5f63-4258-82ae-4967412b119a"}, {"c": "4b22d61e", "s": "aguardando", "d": 65.09, "a": "2026-03-11", "l": null}, {"c": "c05f9924", "s": "delivery", "d": 17.06, "a": "2026-04-16", "l": "29f99180-1184-451a-a531-bfd186199f65"}, {"c": "16512452", "s": "onboarding", "d": 73.83, "a": "2026-03-02", "l": "376257cd-30e9-4d25-8ecf-103d7bf8e601"}, {"c": "46b11c2f", "s": "aprovado-celebridade", "d": 8.07, "a": "2026-04-28", "l": "2d71fa79-334b-4764-bdcc-99a7f4b57c2e"}, {"c": "287f01f3", "s": "ajuste-video", "d": 69.91, "a": "2026-02-26", "l": null}, {"c": "0a5c4bab", "s": "onboarding", "d": 49.84, "a": "2026-02-24", "l": "4ef3c419-cb1d-4732-81f9-a90d183bcdd1"}, {"c": "8a29dc8f", "s": "onboarding", "d": 24.8, "a": "2026-04-17", "l": "923e5113-0bbd-4052-b343-1aa8a2545a7f"}, {"c": "6db46957", "s": "onboarding", "d": 44.85, "a": "2026-03-31", "l": "96b2ab21-fd58-4b44-a9b6-b79741d0c315"}, {"c": "ca815264", "s": "delivery", "d": 25.07, "a": "2026-04-15", "l": "30261138-0c79-4d9c-8029-f0fcdf3d8cde"}, {"c": "5c3c8eea", "s": "onboarding", "d": 8.79, "a": "2026-05-05", "l": "328b994e-2878-47ee-8eb0-e36f1abff748"}, {"c": "fbd587be", "s": "celebridade", "d": 28.89, "a": "2026-04-10", "l": "a2aa2a79-3e82-45bc-9e3e-88e61842c0f7"}, {"c": "93f98e22", "s": "aguardando", "d": 15.75, "a": "2026-03-18", "l": "a47b184c-1774-4a1b-987f-1384800b5d6d"}, {"c": "f184f68a", "s": "roteiro-em-aprovacao", "d": 74.11, "a": "2026-03-02", "l": null}, {"c": "d98ad3b1", "s": "atendimento", "d": 7.88, "a": "2026-04-09", "l": "80634817-7ab1-4fca-a8b7-74b2daee9d21"}, {"c": "9a3b2c19", "s": "aguardando", "d": 42.89, "a": "2026-02-21", "l": null}, {"c": "0126d1b2", "s": "onboarding", "d": 44.09, "a": "2026-03-30", "l": "9f51c96a-a9fb-4c3b-85c6-7ddd7918d1eb"}, {"c": "df5484c9", "s": "roteiro-em-aprovacao", "d": 52.08, "a": "2026-03-11", "l": null}, {"c": "858dbad0", "s": "onboarding", "d": 62.87, "a": "2026-03-13", "l": null}, {"c": "8bbf1afd", "s": "design", "d": 27.8, "a": "2026-04-17", "l": "7e2a914a-5f63-4258-82ae-4967412b119a"}, {"c": "f6c49b0a", "s": "edit", "d": 8.18, "a": "2026-05-05", "l": "5d89cd82-797d-4f09-9039-aaf8aa412ee4"}, {"c": "2c0e8cdc", "s": "onboarding", "d": 2.94, "a": "2026-05-07", "l": "ee0ea7f1-c7c1-44b0-8120-e5594bbc0285"}, {"c": "86e64096", "s": "onboarding", "d": 52.96, "a": "2026-03-23", "l": "7a1bb894-2824-4c1b-9c4e-5f66617e8fcf"}, {"c": "5ae09595", "s": "roteiro-em-aprovacao", "d": 31.18, "a": "2026-03-02", "l": null}, {"c": "62f3f617", "s": "aprovado-celebridade", "d": 24.79, "a": "2026-03-10", "l": "864baebe-5611-4267-a52c-e42613a9807d"}, {"c": "a77feee1", "s": "aguardando", "d": 9.05, "a": "2026-04-01", "l": "3fc4cba8-ff62-4040-be94-31033c76cbd7"}, {"c": "d682fddc", "s": "onboarding", "d": 57.86, "a": "2026-03-18", "l": "84aba701-f08a-44c9-944b-ca953aa62a65"}, {"c": "805fb1b7", "s": "edit", "d": 0.92, "a": "2026-04-22", "l": "ff72c6cb-f064-4c66-8f5c-04197003ff25"}, {"c": "ce5d1e1e", "s": "delivery", "d": 36.86, "a": "2026-03-02", "l": "68fdc5af-31ff-4504-abbe-75b2f4de56e4"}, {"c": "53f59592", "s": "design", "d": 3.78, "a": "2026-05-05", "l": "5b2f7fef-fc79-4002-997f-67d68097a9cb"}, {"c": "ed737e2b", "s": "aguardando", "d": 70.0, "a": "2026-02-25", "l": "d3f8e417-b6e6-4a49-8a1a-5f9a525afcb0"}, {"c": "9ec51472", "s": "video", "d": 8.04, "a": "2026-05-05", "l": "9ed7d6bc-a694-4303-aebf-2902fa2858cc"}, {"c": "6ab7de91", "s": "aguardando", "d": 80.29, "a": "2026-02-24", "l": null}, {"c": "2005528a", "s": "onboarding", "d": 9.81, "a": "2026-05-05", "l": "3ca4c8b9-079f-4abb-8e56-cd56ce8ae8e3"}, {"c": "79adcb73", "s": "roteiro-em-aprovacao", "d": 80.82, "a": "2026-02-23", "l": null}, {"c": "ed1b0927", "s": "aguardando", "d": 71.17, "a": "2026-03-04", "l": null}, {"c": "64894e46", "s": "aguardando", "d": 65.81, "a": "2026-03-10", "l": "2a71db1a-d3cb-4fa3-80b5-917a360ee403"}, {"c": "0fa7278a", "s": "roteiro-em-aprovacao", "d": 30.85, "a": "2026-02-21", "l": null}, {"c": "7e2c164b", "s": "onboarding", "d": 27.86, "a": "2026-04-16", "l": "19d7cbcb-f4c3-42f1-bcef-31f7365885bf"}, {"c": "bc5fa865", "s": "delivery", "d": 2.12, "a": "2026-04-28", "l": "f8a2ca89-2f98-43f5-ba22-ec2cae4a033e"}, {"c": "f60b6aac", "s": "onboarding", "d": 36.72, "a": "2026-04-07", "l": "8d7f8a70-3b53-4b89-9dad-0e0bf7e3aaa1"}, {"c": "8dfd05b4", "s": "aguardando", "d": 22.88, "a": "2026-03-18", "l": "a47b184c-1774-4a1b-987f-1384800b5d6d"}, {"c": "f62adfe2", "s": "aguardando", "d": 50.89, "a": "2026-03-25", "l": null}, {"c": "55f02a11", "s": "aguardando", "d": 23.17, "a": "2026-03-03", "l": null}, {"c": "b949b1bc", "s": "aguardando", "d": 73.58, "a": "2026-03-02", "l": null}, {"c": "19dedfb4", "s": "ajuste-design", "d": 2.12, "a": "2026-04-09", "l": null}, {"c": "d46744db", "s": "roteiro-em-aprovacao", "d": 10.87, "a": "2026-05-04", "l": "8a3edfe1-0cf9-4c64-ac49-ad7120a45c66"}, {"c": "5c255b89", "s": "onboarding", "d": 44.7, "a": "2026-03-31", "l": "e9ce6a19-5da9-4c60-8426-cb75f76aa0bc"}, {"c": "e150fcf1", "s": "onboarding", "d": 1.17, "a": "2026-04-29", "l": "d277429f-e450-4d27-8624-2437cfc9530f"}, {"c": "58fd0966", "s": "roteiro-em-aprovacao", "d": 34.89, "a": "2026-02-23", "l": null}, {"c": "dd54ee12", "s": "roteiro-em-aprovacao", "d": 4.06, "a": "2026-03-04", "l": null}, {"c": "8dfd05b4", "s": "finalizacao", "d": 15.75, "a": "2026-03-18", "l": "a47b184c-1774-4a1b-987f-1384800b5d6d"}, {"c": "15b70e01", "s": "aguardando", "d": 30.87, "a": "2026-03-20", "l": "ab3446f8-cf36-4f61-89c1-0c7561b2a6cd"}, {"c": "2ce29cb2", "s": "video", "d": 16.94, "a": "2026-04-24", "l": "1b128871-628d-4e39-ad81-37981996599b"}, {"c": "b475b1b5", "s": "video", "d": 16.86, "a": "2026-04-23", "l": "1905ed1b-6c01-452e-97fd-c0b01e43e4f0"}, {"c": "8717fa0e", "s": "roteiro-em-aprovacao", "d": 2.98, "a": "2026-04-28", "l": "dc397016-3bd5-4bb5-af17-8439ada4bc26"}, {"c": "33fbdda6", "s": "celebridade", "d": 20.89, "a": "2026-04-01", "l": "9cf67949-f825-4b43-9f36-991a9da90737"}, {"c": "d39f18da", "s": "video", "d": 15.55, "a": "2026-04-16", "l": "d2039e7c-c009-4ad6-93f3-13084a822f1d"}, {"c": "e6f3d623", "s": "roteiro-em-aprovacao", "d": 7.1, "a": "2026-04-23", "l": "90b58b58-2e5a-4f21-8552-aa36f5434692"}, {"c": "bda51360", "s": "onboarding", "d": 83.59, "a": "2026-02-21", "l": null}, {"c": "ccf25447", "s": "onboarding", "d": 27.81, "a": "2026-04-17", "l": "681b2649-c2d5-4a5b-b0e8-45636a2da3be"}, {"c": "02e4e3e7", "s": "roteiro-em-aprovacao", "d": 17.13, "a": "2026-03-20", "l": "734ef3d7-2575-4133-bc50-0edb3f59cb5d"}, {"c": "e9c02c84", "s": "aguardando", "d": 81.09, "a": "2026-02-23", "l": null}, {"c": "05634d7d", "s": "aprovado-celebridade", "d": 29.15, "a": "2026-04-14", "l": "e31dcb09-3875-48e6-a612-c15f6c2f8ffa"}, {"c": "29b6dad9", "s": "video", "d": 53.1, "a": "2026-03-20", "l": "db524de6-0f87-4250-8d40-e9b1f0e3b42a"}, {"c": "5ba078c1", "s": "mix", "d": 59.16, "a": "2026-03-17", "l": null}, {"c": "9e8de951", "s": "roteiro-em-aprovacao", "d": 2.99, "a": "2026-03-20", "l": null}, {"c": "8724739e", "s": "aguardando", "d": 44.77, "a": "2026-02-19", "l": "b75af836-4874-4606-adb1-db9de97d5040"}, {"c": "e42e3c44", "s": "roteiro-em-aprovacao", "d": 6.77, "a": "2026-04-23", "l": null}, {"c": "77449e16", "s": "aguardando", "d": 73.91, "a": "2026-03-02", "l": null}, {"c": "54d2a4d9", "s": "aguardando", "d": 32.16, "a": "2026-04-13", "l": null}, {"c": "46b11c2f", "s": "aguardando", "d": 16.85, "a": "2026-04-28", "l": "2d71fa79-334b-4764-bdcc-99a7f4b57c2e"}, {"c": "5297f3c7", "s": "roteiro-em-aprovacao", "d": 72.76, "a": "2026-03-03", "l": null}, {"c": "53507582", "s": "edit", "d": 7.79, "a": "2026-05-07", "l": "e48abfb1-f4e7-4733-a0b6-055e5c966383"}, {"c": "c63e9d36", "s": "aguardando", "d": 74.13, "a": "2026-03-02", "l": null}, {"c": "fe85456e", "s": "design", "d": 56.81, "a": "2026-03-19", "l": "b01cdd11-9c52-47eb-b394-b5b7228e5c54"}, {"c": "e6f3d623", "s": "ajuste-design", "d": 16.82, "a": "2026-04-23", "l": "90b58b58-2e5a-4f21-8552-aa36f5434692"}, {"c": "740e7be7", "s": "aguardando", "d": 8.92, "a": "2026-02-23", "l": null}, {"c": "b45e781b", "s": "aguardando", "d": 7.88, "a": "2026-03-05", "l": null}, {"c": "cca97d31", "s": "aprovado-celebridade", "d": 84.01, "a": "2026-02-19", "l": null}, {"c": "ce6d9f73", "s": "celebridade", "d": 16.83, "a": "2026-02-24", "l": null}, {"c": "380a365b", "s": "onboarding", "d": 70.17, "a": "2026-03-06", "l": null}, {"c": "b19b6a90", "s": "onboarding", "d": 9.81, "a": "2026-05-05", "l": "0c62886c-d680-482f-bc56-cbd49b466134"}, {"c": "952a6296", "s": "aguardando", "d": 43.13, "a": "2026-03-31", "l": "cb158e46-22ed-4e99-8ae1-136bc5391408"}, {"c": "35e85f98", "s": "onboarding", "d": 10.12, "a": "2026-04-24", "l": "6dacce95-ff99-45c5-a82e-e26bbaccfcb3"}, {"c": "32755a63", "s": "mix", "d": 8.02, "a": "2026-04-27", "l": "575052bb-e694-42ea-8db9-1aaf06479037"}, {"c": "82967896", "s": "delivery", "d": 16.11, "a": "2026-03-16", "l": "f8425009-53c0-4d90-8a25-0135dd6b7055"}, {"c": "d653d725", "s": "roteiro", "d": 8.87, "a": "2026-05-05", "l": "29a3c47c-961b-472c-b639-aba90f795dbc"}, {"c": "9d856d5b", "s": "aguardando", "d": 73.11, "a": "2026-03-03", "l": null}, {"c": "02b67fd5", "s": "video", "d": 17.14, "a": "2026-02-26", "l": "5b126e63-1960-49f6-8550-0cbc80f0d36e"}, {"c": "90c4f578", "s": "aprovado-celebridade", "d": 14.88, "a": "2026-02-19", "l": "23634f46-1e04-4247-b4dd-7c04c6f882f4"}, {"c": "b6f310a8", "s": "aguardando", "d": 35.96, "a": "2026-03-13", "l": "37ecf97f-e69f-48e5-a5e8-33cf9f6acc65"}, {"c": "58fd0966", "s": "aprovado-celebridade", "d": 30.03, "a": "2026-02-23", "l": null}, {"c": "6c262e49", "s": "aguardando", "d": 60.06, "a": "2026-03-03", "l": "5501a8e9-f0fb-4315-90ae-40d034b831d5"}, {"c": "b2e810c1", "s": "delivery", "d": 16.82, "a": "2026-03-02", "l": null}, {"c": "eef3d9b4", "s": "onboarding", "d": 35.79, "a": "2026-04-07", "l": "6a9eaa88-9948-45ac-996a-a2d059a5883c"}, {"c": "853619a8", "s": "video", "d": 72.76, "a": "2026-02-23", "l": null}, {"c": "1fb138f8", "s": "aprovado-celebridade", "d": 35.99, "a": "2026-04-01", "l": "7f979d07-dc07-416f-be35-67b3862222ef"}, {"c": "98e547bc", "s": "aprovado-celebridade", "d": 11.0, "a": "2026-03-23", "l": null}, {"c": "8bfd917d", "s": "onboarding", "d": 8.76, "a": "2026-05-05", "l": "90a29ea0-7579-4652-a85c-452f719c4d02"}, {"c": "b0fb17f5", "s": "design", "d": 9.8, "a": "2026-04-29", "l": "874a3894-1325-46e2-aa7b-71b2667eb0a8"}, {"c": "6da78cd3", "s": "aguardando", "d": 56.9, "a": "2026-03-19", "l": null}, {"c": "b27513b1", "s": "onboarding", "d": 8.01, "a": "2026-04-30", "l": "0d93feaf-3c1b-4b8e-a533-7f7180b599f1"}, {"c": "0d4460ed", "s": "onboarding", "d": 16.87, "a": "2026-04-13", "l": "897c566b-9c1d-4bb6-b7a3-de43b5082aeb"}, {"c": "2c1e2be5", "s": "ajuste-roteiro", "d": 8.75, "a": "2026-05-06", "l": "215dc86c-6a54-416c-8d69-7d3600349001"}, {"c": "bc3788ea", "s": "aguardando", "d": 20.9, "a": "2026-04-23", "l": "0c8bc4b9-4fdb-4242-9e67-18777541e052"}, {"c": "3e89b1c1", "s": "onboarding", "d": 0.11, "a": "2026-05-14", "l": "b4304101-439b-4cb6-833a-750c4ce3c6e4"}, {"c": "ecb847c6", "s": "onboarding", "d": 43.67, "a": "2026-03-31", "l": "f328d4e7-b186-45e3-8c24-525fee1ea5c0"}, {"c": "78e9342c", "s": "onboarding", "d": 66.1, "a": "2026-02-24", "l": null}, {"c": "388b9684", "s": "aguardando", "d": 56.83, "a": "2026-03-19", "l": null}, {"c": "9db9dea1", "s": "aguardando", "d": 81.18, "a": "2026-02-20", "l": null}, {"c": "6d6eed69", "s": "celebridade", "d": 10.14, "a": "2026-05-04", "l": "3ca5bdb5-a372-41ba-bf62-f3b3e9af8dee"}, {"c": "6777bee8", "s": "onboarding", "d": 9.8, "a": "2026-04-29", "l": "5ac8c3b7-dc79-454b-8bee-a919e38c92e0"}, {"c": "46a0e0ae", "s": "onboarding", "d": 6.87, "a": "2026-05-05", "l": "2eb3f6f1-dc3f-4169-94f3-3abc2a09da2c"}, {"c": "db51d1c6", "s": "onboarding", "d": 85.96, "a": "2026-02-18", "l": null}, {"c": "4e6ee40c", "s": "onboarding", "d": 83.64, "a": "2026-02-21", "l": null}, {"c": "0235eada", "s": "roteiro-em-aprovacao", "d": 6.76, "a": "2026-04-15", "l": "30261138-0c79-4d9c-8029-f0fcdf3d8cde"}, {"c": "94966d2a", "s": "roteiro-em-aprovacao", "d": 51.81, "a": "2026-02-21", "l": null}, {"c": "a78dbbf1", "s": "onboarding", "d": 16.88, "a": "2026-04-23", "l": "3a87fee1-f3ab-4445-afba-279944f6e8ea"}, {"c": "75e3fa27", "s": "onboarding", "d": 69.95, "a": "2026-03-06", "l": null}, {"c": "8293c8b1", "s": "aguardando", "d": 9.8, "a": "2026-04-30", "l": "dcfa25aa-340c-43ec-a6ae-7277b4585666"}, {"c": "30302cd4", "s": "onboarding", "d": 29.95, "a": "2026-04-14", "l": "e11a4e4e-92d8-4af8-990a-d880773e08f0"}, {"c": "f02bdc57", "s": "onboarding", "d": 77.93, "a": "2026-02-25", "l": "5f2b2ccd-06bc-4ae8-96b1-863b70213f75"}, {"c": "606b8859", "s": "ajuste-video", "d": 31.0, "a": "2026-02-23", "l": null}, {"c": "5814f750", "s": "roteiro-em-aprovacao", "d": 16.81, "a": "2026-04-23", "l": "bbab6f07-2da8-4501-b510-6e1d5582ced1"}, {"c": "62029561", "s": "onboarding", "d": 2.8, "a": "2026-05-11", "l": "a139ee04-e0df-49f6-ab3e-afe12bdaebb3"}, {"c": "8f0825f8", "s": "onboarding", "d": 43.06, "a": "2026-03-31", "l": "889bb0ca-a6df-40d5-bb6c-9ba80bff574c"}, {"c": "acce59f9", "s": "onboarding", "d": 9.8, "a": "2026-04-29", "l": "182bde3a-2ba2-4d1d-b72b-4967d0de8f18"}, {"c": "dd391f04", "s": "video", "d": 36.1, "a": "2026-03-31", "l": "87326601-5a23-46b7-9bf3-6f946e1c0302"}, {"c": "57918357", "s": "onboarding", "d": 50.91, "a": "2026-03-24", "l": null}, {"c": "e5afe535", "s": "onboarding", "d": 67.15, "a": "2026-03-06", "l": "d527e142-8e0c-41f2-b7ac-20405372a35d"}, {"c": "8767bf90", "s": "aprovado-celebridade", "d": 81.03, "a": "2026-02-23", "l": null}, {"c": "90370719", "s": "aprovado-celebridade", "d": 64.8, "a": "2026-03-11", "l": "ab238bfc-0037-47fe-ba86-51f75518ebd0"}, {"c": "8c32d66f", "s": "onboarding", "d": 9.81, "a": "2026-05-05", "l": "103cf09d-be34-4b84-bb93-f9681831c114"}, {"c": "0ca699a0", "s": "delivery", "d": 22.85, "a": "2026-02-21", "l": null}, {"c": "39d52773", "s": "locucao", "d": 30.85, "a": "2026-02-24", "l": null}, {"c": "96494d6f", "s": "onboarding", "d": 6.86, "a": "2026-05-07", "l": "31aa1cce-4eef-4ab5-9fd0-538d7e057f35"}, {"c": "9ba6ad8b", "s": "aguardando", "d": 22.2, "a": "2026-03-19", "l": "03ff3b19-fccd-488a-bb41-436782337700"}, {"c": "81ce2233", "s": "aguardando", "d": 17.88, "a": "2026-02-21", "l": null}, {"c": "2a46a81c", "s": "celebridade", "d": 57.09, "a": "2026-03-17", "l": "417743cb-d34c-49a6-bbb9-af1e4fbe1bf0"}, {"c": "c0bbad7b", "s": "celebridade", "d": 23.07, "a": "2026-03-16", "l": "404bc257-94d8-4551-a7a5-dd21692144af"}, {"c": "f037d0f0", "s": "onboarding", "d": 44.83, "a": "2026-03-30", "l": "f1a8e9b4-c7c9-4205-8f21-ec5010b16c4a"}, {"c": "68fc95a7", "s": "roteiro-em-aprovacao", "d": 17.12, "a": "2026-02-23", "l": null}, {"c": "cd21eb82", "s": "onboarding", "d": 42.92, "a": "2026-03-31", "l": "93c551b6-e5b6-48b7-b67e-2a910251cf0d"}, {"c": "b839cccb", "s": "ajuste-design", "d": 10.15, "a": "2026-03-06", "l": "46e04ad4-4864-416d-a3e2-635a76b70ec8"}, {"c": "4a3fbf79", "s": "roteiro-em-aprovacao", "d": 72.86, "a": "2026-03-03", "l": null}, {"c": "9ce75773", "s": "roteiro-em-aprovacao", "d": 45.89, "a": "2026-02-27", "l": null}, {"c": "13dce4d8", "s": "onboarding", "d": 0.88, "a": "2026-05-13", "l": "8a8ddf1c-d8e4-4908-a991-aeddc2be6f7f"}, {"c": "79adcb73", "s": "aguardando", "d": 80.82, "a": "2026-02-23", "l": null}, {"c": "8fbf4dc4", "s": "onboarding", "d": 10.12, "a": "2026-04-30", "l": "b561274a-be85-40e4-b1fe-2501e2f43248"}, {"c": "473cd19c", "s": "aguardando", "d": 81.09, "a": "2026-02-23", "l": null}, {"c": "3615f762", "s": "mix", "d": 7.76, "a": "2026-05-04", "l": "3ca5bdb5-a372-41ba-bf62-f3b3e9af8dee"}, {"c": "cfaff8b0", "s": "onboarding", "d": 6.86, "a": "2026-05-07", "l": "cba6d325-1bbf-43a3-bc1e-23eddfb7423c"}, {"c": "21801358", "s": "celebridade", "d": 10.15, "a": "2026-03-04", "l": "23c76a86-138f-4c07-a391-d55e0bf276f5"}, {"c": "6622b4c7", "s": "edit", "d": 1.04, "a": "2026-03-13", "l": null}, {"c": "b81db75a", "s": "aguardando", "d": 9.01, "a": "2026-02-23", "l": null}, {"c": "89bb1595", "s": "ajuste-video", "d": 3.18, "a": "2026-03-04", "l": "fff13194-0493-4201-8b60-be79b0f1e594"}, {"c": "740e7be7", "s": "video", "d": 8.92, "a": "2026-02-23", "l": null}, {"c": "8d18e780", "s": "roteiro-em-aprovacao", "d": 36.91, "a": "2026-03-02", "l": null}, {"c": "b45e781b", "s": "edit", "d": 1.14, "a": "2026-03-05", "l": null}, {"c": "5d05b747", "s": "ajuste-roteiro", "d": 1.0, "a": "2026-05-05", "l": "d1949a02-1736-4bbd-a69b-61bcb4799d07"}, {"c": "74f94151", "s": "roteiro-em-aprovacao", "d": 44.75, "a": "2026-02-20", "l": "8c8964bd-4647-4a27-a221-b1f8c9e21cf0"}, {"c": "b4dc071f", "s": "ajuste-video", "d": 83.54, "a": "2026-02-21", "l": null}, {"c": "4caff9b7", "s": "ajuste-video", "d": 9.06, "a": "2026-03-03", "l": null}, {"c": "cd627586", "s": "onboarding", "d": 52.96, "a": "2026-03-23", "l": "d0357616-c37c-4afc-8ac5-5e53ddb6a6ad"}, {"c": "9d85cbcd", "s": "onboarding", "d": 48.83, "a": "2026-03-27", "l": "8c56af78-eb0b-439f-9c6e-aa4cbbb143a2"}, {"c": "046c34ea", "s": "roteiro-em-aprovacao", "d": 22.2, "a": "2026-04-20", "l": "116fc4f5-15dc-4d7b-b0e7-fdec7f228c35"}, {"c": "c05f9924", "s": "ajuste-roteiro", "d": 6.91, "a": "2026-04-16", "l": "29f99180-1184-451a-a531-bfd186199f65"}, {"c": "46b11c2f", "s": "video", "d": 8.07, "a": "2026-04-28", "l": "2d71fa79-334b-4764-bdcc-99a7f4b57c2e"}, {"c": "cbab5563", "s": "onboarding", "d": 16.07, "a": "2026-04-29", "l": "fa995b70-6715-4330-b347-bd47ef571180"}, {"c": "ae93ed24", "s": "video", "d": 24.72, "a": "2026-04-16", "l": "05da5244-d67b-48b8-b39b-98c525154c33"}, {"c": "68270250", "s": "roteiro-em-aprovacao", "d": 49.12, "a": "2026-02-20", "l": null}, {"c": "7ab41542", "s": "roteiro-em-aprovacao", "d": 43.17, "a": "2026-03-27", "l": "583d09be-cca1-4782-9e44-050ff5997df5"}, {"c": "ca815264", "s": "roteiro-em-aprovacao", "d": 6.81, "a": "2026-04-15", "l": "30261138-0c79-4d9c-8029-f0fcdf3d8cde"}, {"c": "5554e3f7", "s": "onboarding", "d": 77.93, "a": "2026-02-21", "l": null}, {"c": "8608b406", "s": "roteiro-em-aprovacao", "d": 36.91, "a": "2026-02-27", "l": null}, {"c": "f3bf8ae5", "s": "aguardando", "d": 59.09, "a": "2026-03-06", "l": null}, {"c": "29e24b22", "s": "onboarding", "d": 43.67, "a": "2026-03-30", "l": "04d677b2-bffe-4913-a6c2-0b47334dc31f"}, {"c": "bfe8603f", "s": "celebridade", "d": 30.95, "a": "2026-04-09", "l": "3f92f9f4-ac10-4e6e-8c63-b4422a6397ae"}, {"c": "d8a159da", "s": "aguardando", "d": 29.84, "a": "2026-04-10", "l": "b5caff42-772b-44ce-9910-b9f336ed0fdc"}, {"c": "53f59592", "s": "edit", "d": 8.78, "a": "2026-05-05", "l": "5b2f7fef-fc79-4002-997f-67d68097a9cb"}, {"c": "8722b910", "s": "onboarding", "d": 79.8, "a": "2026-02-23", "l": null}, {"c": "b45e781b", "s": "ajuste-design", "d": 20.85, "a": "2026-03-05", "l": null}, {"c": "ce6d9f73", "s": "aguardando", "d": 36.1, "a": "2026-02-24", "l": null}, {"c": "d069f9ca", "s": "roteiro-em-aprovacao", "d": 3.19, "a": "2026-02-12", "l": null}, {"c": "c939a71b", "s": "design", "d": 1.8, "a": "2026-03-09", "l": null}, {"c": "150e00bc", "s": "roteiro-em-aprovacao", "d": 43.91, "a": "2026-02-20", "l": null}, {"c": "4b2f4418", "s": "aguardando", "d": 37.85, "a": "2026-03-31", "l": "6343a197-dc5a-4d44-abcf-6131b6a34544"}, {"c": "0a710239", "s": "aguardando", "d": 57.89, "a": "2026-03-18", "l": "53bbcd40-df99-43f6-afbf-556342eeeb49"}, {"c": "96a190e7", "s": "aguardando", "d": 83.65, "a": "2026-02-21", "l": null}, {"c": "cee858c4", "s": "onboarding", "d": 69.96, "a": "2026-03-06", "l": null}, {"c": "7dbff967", "s": "aguardando", "d": 36.07, "a": "2026-02-23", "l": null}, {"c": "942db9df", "s": "aprovado-celebridade", "d": 44.1, "a": "2026-03-27", "l": null}, {"c": "ea4e86fb", "s": "onboarding", "d": 16.88, "a": "2026-04-23", "l": "3843bbf5-59df-4774-a5f0-c70f902db35f"}, {"c": "689c9f5e", "s": "onboarding", "d": 84.0, "a": "2026-02-19", "l": "52efc5ca-16cc-4265-b2cd-4afb34d9f34d"}, {"c": "2c1e2be5", "s": "roteiro-em-aprovacao", "d": 2.96, "a": "2026-05-06", "l": "215dc86c-6a54-416c-8d69-7d3600349001"}, {"c": "8717fa0e", "s": "ajuste-design", "d": 16.82, "a": "2026-04-28", "l": "dc397016-3bd5-4bb5-af17-8439ada4bc26"}, {"c": "47a70ef8", "s": "aguardando", "d": 42.83, "a": "2026-03-16", "l": null}, {"c": "7125ca38", "s": "onboarding", "d": 9.81, "a": "2026-05-05", "l": "69a58791-7798-4f50-bf4e-f665e7c095e1"}, {"c": "89d96203", "s": "onboarding", "d": 49.95, "a": "2026-03-25", "l": "062ef38a-d1a9-48e2-bfc3-04edd3f22bc3"}, {"c": "b4dc071f", "s": "ajuste-design", "d": 83.53, "a": "2026-02-21", "l": null}, {"c": "5719a1b2", "s": "aguardando", "d": 73.03, "a": "2026-02-23", "l": null}, {"c": "395f2e50", "s": "roteiro-em-aprovacao", "d": 6.86, "a": "2026-05-07", "l": "31aa1cce-4eef-4ab5-9fd0-538d7e057f35"}, {"c": "b0fb17f5", "s": "edit", "d": 4.06, "a": "2026-04-29", "l": "874a3894-1325-46e2-aa7b-71b2667eb0a8"}, {"c": "29c87350", "s": "edit", "d": 9.8, "a": "2026-04-29", "l": "396bce66-2163-4fe9-8a1e-67e660510a74"}, {"c": "cedfe2e1", "s": "roteiro-em-aprovacao", "d": 66.1, "a": "2026-03-10", "l": null}, {"c": "39d52773", "s": "design", "d": 30.85, "a": "2026-02-24", "l": null}, {"c": "353baf73", "s": "roteiro-em-aprovacao", "d": 1.07, "a": "2026-04-10", "l": "a1ea10da-0b83-48a0-8769-4847e1bb57d1"}, {"c": "63891b3b", "s": "aguardando", "d": 57.85, "a": "2026-03-10", "l": "9377b244-b884-4f91-b641-1ca0ba29ffbd"}, {"c": "da5d8d79", "s": "ajuste-design", "d": 16.82, "a": "2026-04-28", "l": "07504aa4-af8b-4624-a229-6e6734a20470"}, {"c": "585b2b2d", "s": "aguardando", "d": 51.95, "a": "2026-02-27", "l": "a0dd7420-751d-4d14-92bb-188da8616892"}, {"c": "78b35897", "s": "edit", "d": 2.8, "a": "2026-05-12", "l": "498cc854-0f4f-4809-8bef-0f060bd348fd"}, {"c": "349f2760", "s": "onboarding", "d": 51.85, "a": "2026-03-23", "l": "1b370c8d-f764-4278-a96e-45a598a2b77d"}, {"c": "635c7def", "s": "roteiro-em-aprovacao", "d": 7.88, "a": "2026-04-17", "l": "0faf4ff0-0b2c-4995-a53d-53c3f2c1af18"}, {"c": "585b2b2d", "s": "atendimento", "d": 51.95, "a": "2026-02-27", "l": "a0dd7420-751d-4d14-92bb-188da8616892"}, {"c": "258f2364", "s": "onboarding", "d": 16.81, "a": "2026-04-23", "l": "af95ea9f-e7db-41ca-81d5-cfc78991009b"}, {"c": "b35f135c", "s": "finalizacao", "d": 31.11, "a": "2026-02-23", "l": null}, {"c": "ccbde9c8", "s": "aguardando", "d": 18.07, "a": "2026-03-31", "l": "a7949fb7-71f0-43c0-a361-82f22f4c21c1"}, {"c": "b4dc071f", "s": "edit", "d": 83.52, "a": "2026-02-21", "l": null}, {"c": "27fc029b", "s": "aguardando", "d": 66.03, "a": "2026-03-10", "l": null}, {"c": "e96f64a9", "s": "roteiro-em-aprovacao", "d": 6.78, "a": "2026-04-23", "l": "30261138-0c79-4d9c-8029-f0fcdf3d8cde"}, {"c": "86cd9d05", "s": "onboarding", "d": 83.92, "a": "2026-02-20", "l": "516aa758-acb4-405b-b387-c4a92ad0059e"}, {"c": "7735d6ff", "s": "edit", "d": 16.93, "a": "2026-04-16", "l": "c9ae87bf-d575-4bf5-9c94-b866796c3c98"}, {"c": "f6288d0d", "s": "aguardando", "d": 27.84, "a": "2026-04-17", "l": "59272a88-6eeb-479a-beb9-70880ba60205"}, {"c": "b798b809", "s": "roteiro-em-aprovacao", "d": 1.07, "a": "2026-05-06", "l": "b6929dcc-2bda-4050-b1fe-c8a7ef312759"}, {"c": "bddde26b", "s": "onboarding", "d": 14.79, "a": "2026-04-30", "l": "3e0b9e39-e285-4978-a5b2-51db5d7b0194"}, {"c": "08d78c68", "s": "criacao", "d": 6.93, "a": "2026-03-20", "l": null}, {"c": "e9964bff", "s": "aguardando", "d": 78.08, "a": "2026-02-23", "l": null}, {"c": "31a91e58", "s": "ajuste-video", "d": 62.95, "a": "2026-02-23", "l": null}, {"c": "90370719", "s": "aguardando", "d": 58.2, "a": "2026-03-11", "l": "ab238bfc-0037-47fe-ba86-51f75518ebd0"}, {"c": "3615f762", "s": "video", "d": 7.76, "a": "2026-05-04", "l": "3ca5bdb5-a372-41ba-bf62-f3b3e9af8dee"}, {"c": "1160351c", "s": "onboarding", "d": 72.79, "a": "2026-03-03", "l": null}, {"c": "189da18a", "s": "ajuste-video", "d": 21.98, "a": "2026-03-04", "l": null}, {"c": "7ed066f9", "s": "roteiro-em-aprovacao", "d": 78.95, "a": "2026-02-25", "l": null}, {"c": "a18653ec", "s": "roteiro-em-aprovacao", "d": 31.89, "a": "2026-02-19", "l": "1653d291-9911-419c-b32b-8481d20ffa5f"}, {"c": "189da18a", "s": "edit", "d": 0.74, "a": "2026-03-04", "l": null}, {"c": "6622b4c7", "s": "mix", "d": 7.77, "a": "2026-03-13", "l": null}, {"c": "8293c8b1", "s": "edit", "d": 7.08, "a": "2026-04-30", "l": "dcfa25aa-340c-43ec-a6ae-7277b4585666"}, {"c": "f0a6e4cc", "s": "onboarding", "d": 9.87, "a": "2026-04-30", "l": "ed9c0254-ed9e-42e6-af3f-f048559037c2"}, {"c": "28d198f8", "s": "onboarding", "d": 45.73, "a": "2026-03-30", "l": "4fbf99d3-2170-404f-9b6e-0abbf9ef68bb"}, {"c": "1893c57b", "s": "aprovado-celebridade", "d": 59.82, "a": "2026-03-03", "l": "614623de-3516-4704-a2fa-8945315eaa25"}, {"c": "c9d2365a", "s": "aguardando", "d": 59.96, "a": "2026-02-23", "l": null}, {"c": "483904e5", "s": "roteiro-em-aprovacao", "d": 72.16, "a": "2026-03-04", "l": null}, {"c": "ec0b4fba", "s": "video", "d": 14.8, "a": "2026-02-12", "l": null}, {"c": "413c502e", "s": "roteiro-em-aprovacao", "d": 72.97, "a": "2026-03-03", "l": null}, {"c": "93e9a1d5", "s": "onboarding", "d": 9.82, "a": "2026-05-05", "l": "6b88a407-fb40-4367-b027-ee07441d5b9f"}, {"c": "8b7beee8", "s": "onboarding", "d": 83.75, "a": "2026-02-20", "l": null}, {"c": "3615f762", "s": "celebridade", "d": 10.14, "a": "2026-05-04", "l": "3ca5bdb5-a372-41ba-bf62-f3b3e9af8dee"}, {"c": "c9341c4c", "s": "onboarding", "d": 42.92, "a": "2026-03-31", "l": "074277be-6c46-4d18-92d5-dbc20321b125"}, {"c": "c12e955b", "s": "aguardando", "d": 51.85, "a": "2026-03-24", "l": "2d5095e5-0fb8-4506-bdfd-d58f75488145"}, {"c": "73ed95c9", "s": "onboarding", "d": 49.84, "a": "2026-03-09", "l": null}, {"c": "1dfa8eca", "s": "aprovado-celebridade", "d": 7.02, "a": "2026-02-19", "l": "3510de52-a962-4edf-8cce-bb7dbe593216"}, {"c": "c620f377", "s": "onboarding", "d": 43.19, "a": "2026-03-30", "l": "2d63477b-f1f5-41fc-8377-36b3a2c74930"}, {"c": "c218ae50", "s": "roteiro-em-aprovacao", "d": 37.17, "a": "2026-03-04", "l": "d3e633ef-bc1d-4391-9dca-be9fbd77917f"}, {"c": "d2993e5e", "s": "aguardando", "d": 46.2, "a": "2026-02-27", "l": "1b61f7e5-78d9-4a68-a668-d35cb935caad"}, {"c": "bcba83ad", "s": "celebridade", "d": 58.73, "a": "2026-03-13", "l": "d56b0efd-01bd-45dc-9b1e-4b740b053df3"}, {"c": "1fa4b0cb", "s": "aguardando", "d": 66.75, "a": "2026-03-09", "l": "9fb39b06-7ec7-4a7e-b22a-7ce942bfbf32"}, {"c": "ec0b4fba", "s": "roteiro-em-aprovacao", "d": 31.1, "a": "2026-02-12", "l": null}, {"c": "805fb1b7", "s": "design", "d": 16.81, "a": "2026-04-22", "l": "ff72c6cb-f064-4c66-8f5c-04197003ff25"}, {"c": "6eefc80d", "s": "onboarding", "d": 9.82, "a": "2026-05-05", "l": "6b88a407-fb40-4367-b027-ee07441d5b9f"}, {"c": "1997e1c4", "s": "aguardando", "d": 39.14, "a": "2026-03-05", "l": null}, {"c": "42480d04", "s": "onboarding", "d": 85.92, "a": "2026-02-18", "l": null}, {"c": "95593668", "s": "edit", "d": 4.06, "a": "2026-04-30", "l": "4998a2bb-a43d-4e6d-9dc6-4d8d33e19b26"}, {"c": "272521f2", "s": "onboarding", "d": 83.62, "a": "2026-02-21", "l": null}, {"c": "591947c8", "s": "onboarding", "d": 52.96, "a": "2026-03-23", "l": "ef517d10-7b06-4b99-84db-70d93d99d2ee"}, {"c": "d2fcadc0", "s": "roteiro-em-aprovacao", "d": 7.09, "a": "2026-02-21", "l": null}, {"c": "5d67ebbc", "s": "roteiro-em-aprovacao", "d": 44.94, "a": "2026-03-12", "l": "260146b3-b405-4ac0-817d-15b308c28ca0"}, {"c": "678ce8b8", "s": "onboarding", "d": 69.97, "a": "2026-03-06", "l": null}, {"c": "5d0c1dc3", "s": "aprovado-celebridade", "d": 28.25, "a": "2026-02-21", "l": null}, {"c": "8d837031", "s": "roteiro-em-aprovacao", "d": 23.74, "a": "2026-03-10", "l": "719ff82e-e896-4276-8797-970d049ce7e9"}, {"c": "bcba83ad", "s": "aguardando", "d": 62.9, "a": "2026-03-13", "l": "d56b0efd-01bd-45dc-9b1e-4b740b053df3"}, {"c": "45ea788b", "s": "onboarding", "d": 8.01, "a": "2026-05-05", "l": "65f289da-e7d1-472b-9716-ed67f1d5b287"}, {"c": "316df6ae", "s": "ajuste-design", "d": 8.92, "a": "2026-04-27", "l": "dfeddb81-5a70-4a43-9b7d-fbf1ee1fc519"}, {"c": "47fde184", "s": "onboarding", "d": 27.86, "a": "2026-04-17", "l": "0ba88ac6-ee14-4659-a666-1009108ac24e"}, {"c": "29b6dad9", "s": "celebridade", "d": 53.1, "a": "2026-03-20", "l": "db524de6-0f87-4250-8d40-e9b1f0e3b42a"}, {"c": "84d28d66", "s": "aguardando", "d": 72.96, "a": "2026-03-03", "l": null}, {"c": "d9d54559", "s": "aguardando", "d": 81.73, "a": "2026-02-22", "l": null}, {"c": "2fbff762", "s": "onboarding", "d": 83.74, "a": "2026-02-20", "l": null}, {"c": "e2421f62", "s": "celebridade", "d": 4.04, "a": "2026-04-10", "l": "607f3f9d-44a8-4e10-99ce-2e80dcbab4cd"}, {"c": "1dfa8eca", "s": "video", "d": 7.02, "a": "2026-02-19", "l": "3510de52-a962-4edf-8cce-bb7dbe593216"}, {"c": "9efc73ff", "s": "roteiro-em-aprovacao", "d": 6.86, "a": "2026-05-07", "l": "31aa1cce-4eef-4ab5-9fd0-538d7e057f35"}, {"c": "2f112675", "s": "onboarding", "d": 62.9, "a": "2026-03-13", "l": null}, {"c": "d1e247dc", "s": "onboarding", "d": 49.82, "a": "2026-03-26", "l": "4d1527a6-9feb-49bc-9d98-4407d8a77351"}, {"c": "68fc95a7", "s": "edit", "d": 1.79, "a": "2026-02-23", "l": null}, {"c": "4b2f4418", "s": "aprovado-celebridade", "d": 44.7, "a": "2026-03-31", "l": "6343a197-dc5a-4d44-abcf-6131b6a34544"}, {"c": "2c6d2f63", "s": "aprovado-celebridade", "d": 83.58, "a": "2026-02-21", "l": null}, {"c": "8a00029f", "s": "onboarding", "d": 49.05, "a": "2026-03-26", "l": "0252c161-1ed4-490a-afb1-31d25f06b677"}, {"c": "c6d7dcf9", "s": "design", "d": 45.74, "a": "2026-03-27", "l": "bdeaa9db-a9e5-4948-94d3-ac0f12a17cff"}, {"c": "e2e2e49d", "s": "design", "d": 2.99, "a": "2026-05-12", "l": "d2a7bc78-6886-41d0-8009-9e5d4b1b5e63"}, {"c": "22c6b231", "s": "onboarding", "d": 67.13, "a": "2026-03-06", "l": "1838f19c-0219-4170-9016-471ee54fe346"}, {"c": "15e14be2", "s": "roteiro-em-aprovacao", "d": 71.81, "a": "2026-02-23", "l": null}, {"c": "eb16222f", "s": "aguardando", "d": 80.02, "a": "2026-02-24", "l": null}, {"c": "b729557e", "s": "video", "d": 8.06, "a": "2026-02-26", "l": null}, {"c": "6d6eed69", "s": "edit", "d": 7.76, "a": "2026-05-04", "l": "3ca5bdb5-a372-41ba-bf62-f3b3e9af8dee"}, {"c": "a45ee6c2", "s": "celebridade", "d": 25.06, "a": "2026-04-15", "l": "30261138-0c79-4d9c-8029-f0fcdf3d8cde"}, {"c": "da5d8d79", "s": "aguardando", "d": 15.82, "a": "2026-04-28", "l": "07504aa4-af8b-4624-a229-6e6734a20470"}, {"c": "22fe4941", "s": "roteiro-em-aprovacao", "d": 18.11, "a": "2026-03-19", "l": "1f8da9ff-b4fa-4b1a-86e2-96a064dbd7b7"}, {"c": "41357f52", "s": "design", "d": 3.19, "a": "2026-04-24", "l": "c2444c31-7c7f-4e36-b33b-237465349446"}, {"c": "ba00472f", "s": "video", "d": 8.12, "a": "2026-03-12", "l": null}, {"c": "bc3788ea", "s": "video", "d": 7.9, "a": "2026-04-23", "l": "0c8bc4b9-4fdb-4242-9e67-18777541e052"}, {"c": "78b35897", "s": "design", "d": 1.9, "a": "2026-05-12", "l": "498cc854-0f4f-4809-8bef-0f060bd348fd"}, {"c": "c12e955b", "s": "delivery", "d": 38.17, "a": "2026-03-24", "l": "2d5095e5-0fb8-4506-bdfd-d58f75488145"}, {"c": "4bc41c95", "s": "aguardando", "d": 52.96, "a": "2026-03-23", "l": "4ab4c533-a1d2-46f8-a595-a59ae6df52ea"}, {"c": "15e14be2", "s": "aguardando", "d": 9.97, "a": "2026-02-23", "l": null}, {"c": "77a16e44", "s": "design", "d": 10.94, "a": "2026-03-17", "l": "f44a585e-b008-4b9f-aae1-9539cf85e626"}, {"c": "ee78940b", "s": "roteiro-em-aprovacao", "d": 15.87, "a": "2026-03-10", "l": null}, {"c": "dd391f04", "s": "aguardando", "d": 43.67, "a": "2026-03-31", "l": "87326601-5a23-46b7-9bf3-6f946e1c0302"}, {"c": "bf7ce9ae", "s": "onboarding", "d": 73.84, "a": "2026-03-02", "l": null}, {"c": "f3886c9c", "s": "onboarding", "d": 3.85, "a": "2026-05-11", "l": "3370f9ba-9a7f-4415-a8da-e57fb67802cf"}, {"c": "1c00a337", "s": "onboarding", "d": 2.81, "a": "2026-05-07", "l": "670629cf-ff00-45dc-8859-bf67b82d2b6c"}, {"c": "b1f5f7e3", "s": "roteiro-em-aprovacao", "d": 2.89, "a": "2026-02-24", "l": null}, {"c": "a7e0f8c0", "s": "roteiro-em-aprovacao", "d": 4.07, "a": "2026-03-10", "l": null}, {"c": "315ad147", "s": "roteiro-em-aprovacao", "d": 77.82, "a": "2026-02-12", "l": null}, {"c": "be265974", "s": "aguardando", "d": 51.95, "a": "2026-02-27", "l": "a0dd7420-751d-4d14-92bb-188da8616892"}, {"c": "cf1e4c62", "s": "aguardando", "d": 14.87, "a": "2026-02-19", "l": "1c8569de-f0d7-4a64-893e-e12986100895"}, {"c": "62f3f617", "s": "aguardando", "d": 2.85, "a": "2026-03-10", "l": "864baebe-5611-4267-a52c-e42613a9807d"}, {"c": "ca4e5b57", "s": "onboarding", "d": 1.09, "a": "2026-05-14", "l": "804797ad-44f2-40f3-8296-df8bce1e7c2d"}, {"c": "4b1daa0c", "s": "celebridade", "d": 20.97, "a": "2026-02-21", "l": null}, {"c": "b093d904", "s": "video", "d": 10.86, "a": "2026-04-24", "l": "8d9eedf4-c42e-49b5-8622-044ebe0f7868"}, {"c": "b565d619", "s": "celebridade", "d": 15.56, "a": "2026-03-11", "l": "c2a7326f-4d3f-4b88-abb2-7b3aced20438"}, {"c": "dd54ee12", "s": "aprovado-celebridade", "d": 3.82, "a": "2026-03-04", "l": null}, {"c": "21cc0707", "s": "onboarding", "d": 67.15, "a": "2026-03-06", "l": "76a90a06-7a2c-46ea-a30f-455330fbe4ec"}, {"c": "4fd0cf87", "s": "onboarding", "d": 44.7, "a": "2026-03-31", "l": "e9ce6a19-5da9-4c60-8426-cb75f76aa0bc"}, {"c": "73032745", "s": "aguardando", "d": 72.17, "a": "2026-03-04", "l": null}, {"c": "8293c8b1", "s": "video", "d": 7.06, "a": "2026-04-30", "l": "dcfa25aa-340c-43ec-a6ae-7277b4585666"}, {"c": "853619a8", "s": "ajuste-design", "d": 72.76, "a": "2026-02-23", "l": null}, {"c": "6622b4c7", "s": "design", "d": 1.04, "a": "2026-03-13", "l": null}, {"c": "95593668", "s": "design", "d": 9.81, "a": "2026-04-30", "l": "4998a2bb-a43d-4e6d-9dc6-4d8d33e19b26"}, {"c": "05634d7d", "s": "aguardando", "d": 17.88, "a": "2026-04-14", "l": "e31dcb09-3875-48e6-a612-c15f6c2f8ffa"}, {"c": "e7449684", "s": "video", "d": 8.02, "a": "2026-04-01", "l": "7f979d07-dc07-416f-be35-67b3862222ef"}, {"c": "61cceb2a", "s": "onboarding", "d": 8.21, "a": "2026-05-04", "l": "a8f7b035-ae7c-48ec-9b35-7ef5e28fdeca"}, {"c": "d39f18da", "s": "aprovado-celebridade", "d": 17.13, "a": "2026-04-16", "l": "d2039e7c-c009-4ad6-93f3-13084a822f1d"}, {"c": "b2a4862d", "s": "design", "d": 2.14, "a": "2026-03-02", "l": null}, {"c": "b4edba78", "s": "aguardando", "d": 53.13, "a": "2026-02-21", "l": null}, {"c": "190fcefb", "s": "onboarding", "d": 8.76, "a": "2026-05-05", "l": "45d0e3f2-13c1-4d6a-baf7-d3a46478ef4d"}, {"c": "7e7e3858", "s": "onboarding", "d": 55.92, "a": "2026-03-20", "l": "fec946f3-146f-4cce-8a88-433e4b27eb3f"}, {"c": "35843e0f", "s": "aprovado-celebridade", "d": 66.93, "a": "2026-03-09", "l": null}, {"c": "ea014036", "s": "onboarding", "d": 6.86, "a": "2026-05-07", "l": "31aa1cce-4eef-4ab5-9fd0-538d7e057f35"}, {"c": "90057b02", "s": "ajuste-video", "d": 79.04, "a": "2026-02-23", "l": null}, {"c": "5a6810d0", "s": "aguardando", "d": 25.15, "a": "2026-03-27", "l": "b7a1a051-1226-4740-9e20-c57b97c535e5"}, {"c": "a9aa0e49", "s": "roteiro-em-aprovacao", "d": 66.17, "a": "2026-03-10", "l": "971eaedb-e6ca-4e02-a99d-ef1a89af17a7"}, {"c": "9ce75773", "s": "aguardando", "d": 51.1, "a": "2026-02-27", "l": null}, {"c": "fe85456e", "s": "aguardando", "d": 18.12, "a": "2026-03-19", "l": "b01cdd11-9c52-47eb-b394-b5b7228e5c54"}, {"c": "712a9535", "s": "onboarding", "d": 49.82, "a": "2026-03-26", "l": "3bab248a-7d1c-4d3a-94a3-66c9e8f99764"}, {"c": "a961a05a", "s": "onboarding", "d": 0.88, "a": "2026-05-11", "l": "a051d5a0-2d17-4e2c-818f-dfb58ad4e772"}, {"c": "10ad6086", "s": "aguardando", "d": 84.0, "a": "2026-02-19", "l": "14d751cb-8958-4e48-a176-62783a270a48"}, {"c": "b6613899", "s": "onboarding", "d": 16.82, "a": "2026-04-23", "l": "fe0e2554-c196-4874-8fb9-37ac9c0a523a"}, {"c": "c6c706a5", "s": "roteiro-em-aprovacao", "d": 57.09, "a": "2026-02-27", "l": null}, {"c": "a8407f0d", "s": "aguardando", "d": 65.07, "a": "2026-03-03", "l": null}, {"c": "18fe425c", "s": "mais-novo", "d": 92.9, "a": "2026-02-11", "l": null}, {"c": "3ca3b73e", "s": "mais-novo", "d": 80.95, "a": "2026-02-23", "l": null}, {"c": "f98c6bf1", "s": "mais-novo", "d": 81.62, "a": "2026-02-23", "l": null}, {"c": "6b92962b", "s": "mais-novo", "d": 80.84, "a": "2026-02-23", "l": null}, {"c": "13b154bf", "s": "mais-novo", "d": 56.86, "a": "2026-03-19", "l": "717d3d9c-78be-48b9-b652-9d7578686942"}, {"c": "5736e91f", "s": "mais-novo", "d": 57.96, "a": "2026-03-18", "l": "2550112d-d2a2-4734-9831-bf146d3fa45e"}, {"c": "07f33182", "s": "mais-novo", "d": 0.11, "a": "2026-05-15", "l": null}, {"c": "855252af", "s": "mais-novo", "d": 59.07, "a": "2026-03-17", "l": null}, {"c": "d84b10df", "s": "mais-novo", "d": 50.15, "a": "2026-03-26", "l": "ac6f54c2-3304-4144-891c-a005130c9178"}, {"c": "d1c836aa", "s": "mais-novo", "d": 69.9, "a": "2026-03-06", "l": "2e5e48a6-a65b-4dca-ab6d-b732de5ae818"}, {"c": "7957b773", "s": "mais-novo", "d": 56.86, "a": "2026-03-19", "l": "3eb9b574-0067-4cce-9ae5-f676232dc45f"}, {"c": "5a94c451", "s": "mais-novo", "d": 79.87, "a": "2026-02-24", "l": null}, {"c": "ba3a3190", "s": "mais-novo", "d": 67.13, "a": "2026-03-09", "l": "23fdbcc6-dc6b-4064-9ee3-564acfa18625"}, {"c": "b763394a", "s": "mais-novo", "d": 83.76, "a": "2026-02-20", "l": null}, {"c": "201d789d", "s": "mais-novo", "d": 80.88, "a": "2026-02-23", "l": null}, {"c": "8bc91d4c", "s": "mais-novo", "d": 83.62, "a": "2026-02-21", "l": null}, {"c": "de9ad998", "s": "mais-novo", "d": 70.82, "a": "2026-03-05", "l": null}, {"c": "ec3584e1", "s": "mais-novo", "d": 37.91, "a": "2026-04-07", "l": null}, {"c": "e0c81c39", "s": "mais-novo", "d": 83.67, "a": "2026-02-21", "l": null}, {"c": "3dfbe5ba", "s": "mais-novo", "d": 80.88, "a": "2026-02-23", "l": null}, {"c": "31895696", "s": "mais-novo", "d": 71.9, "a": "2026-03-04", "l": null}, {"c": "9d82c2c9", "s": "mais-novo", "d": 37.06, "a": "2026-04-08", "l": "6343a197-dc5a-4d44-abcf-6131b6a34544"}, {"c": "e4286419", "s": "mais-novo", "d": 3.26, "a": "2026-05-12", "l": "14d751cb-8958-4e48-a176-62783a270a48"}, {"c": "552a31fb", "s": "mais-novo", "d": 2.42, "a": "2026-05-13", "l": "781fd128-3e10-4a22-82c9-86363146dfbb"}, {"c": "dbe6560f", "s": "finalizado", "d": 72.86, "a": "2026-02-11", "l": null}, {"c": "5f239bc8", "s": "mais-novo", "d": 49.85, "a": "2026-03-26", "l": null}, {"c": "4937a8bb", "s": "mais-novo", "d": 59.02, "a": "2026-03-17", "l": null}, {"c": "b0a873d3", "s": "mais-novo", "d": 79.89, "a": "2026-02-24", "l": null}, {"c": "95f2d805", "s": "mais-novo", "d": 83.67, "a": "2026-02-21", "l": null}, {"c": "1bd360be", "s": "mais-novo", "d": 15.0, "a": "2026-04-30", "l": "9911daf9-5df7-450e-99fa-9658d6d71e00"}, {"c": "1923c294", "s": "mais-novo", "d": 43.2, "a": "2026-04-02", "l": "4073e22f-7a32-44a4-aec6-4260fdc8abf0"}, {"c": "da852bb1", "s": "mais-novo", "d": 66.89, "a": "2026-03-09", "l": null}, {"c": "5e9e2940", "s": "mais-novo", "d": 56.87, "a": "2026-03-19", "l": null}, {"c": "d5c9ceab", "s": "mais-novo", "d": 10.14, "a": "2026-05-05", "l": "aa96f9ff-0c5f-42ce-8c3a-06d443af37db"}, {"c": "783181f0", "s": "mais-novo", "d": 81.09, "a": "2026-02-23", "l": null}, {"c": "e136ee0f", "s": "mais-novo", "d": 23.11, "a": "2026-04-22", "l": null}, {"c": "2732a615", "s": "mais-novo", "d": 56.02, "a": "2026-03-20", "l": "9d7ed9da-7d85-4bff-b79d-e5bb4b90c82b"}, {"c": "4bf952c1", "s": "mais-novo", "d": 65.17, "a": "2026-03-11", "l": null}, {"c": "3b1eee75", "s": "mais-novo", "d": 81.65, "a": "2026-02-23", "l": null}, {"c": "d36b8254", "s": "mais-novo", "d": 76.95, "a": "2026-02-27", "l": null}, {"c": "a919aa4f", "s": "mais-novo", "d": 70.83, "a": "2026-03-05", "l": null}, {"c": "36eb243f", "s": "mais-novo", "d": 36.91, "a": "2026-04-08", "l": "b704ca7b-49d4-4c9f-bb3a-bc37e63a7e24"}, {"c": "a01ee121", "s": "mais-novo", "d": 72.86, "a": "2026-03-03", "l": "355cb19d-a319-4352-a829-54053d58e852"}, {"c": "7f86402c", "s": "mais-novo", "d": 70.86, "a": "2026-03-05", "l": null}, {"c": "2a90705c", "s": "mais-novo", "d": 76.83, "a": "2026-02-27", "l": "df464f6e-c65a-40cf-8255-65b91f412d5c"}, {"c": "d5f13fa0", "s": "mais-novo", "d": 73.83, "a": "2026-03-02", "l": null}, {"c": "e2a349eb", "s": "mais-novo", "d": 83.65, "a": "2026-02-21", "l": null}, {"c": "43ad3a6b", "s": "mais-novo", "d": 45.14, "a": "2026-03-31", "l": "17a8993d-02ea-46b6-93b7-e9f9943e4f0d"}, {"c": "5321127c", "s": "mais-novo", "d": 71.18, "a": "2026-03-05", "l": null}, {"c": "9bac7157", "s": "mais-novo", "d": 49.9, "a": "2026-03-26", "l": "f81a865c-46d8-4c3c-934f-e437d40bf2d2"}, {"c": "668ee97e", "s": "mais-novo", "d": 50.82, "a": "2026-03-25", "l": null}, {"c": "a9a9c8e1", "s": "mais-novo", "d": 83.77, "a": "2026-02-20", "l": "cffcb908-7cf4-4ba8-8a4c-39672ba0ab0b"}, {"c": "94caf635", "s": "mais-novo", "d": 64.13, "a": "2026-03-12", "l": null}, {"c": "c848ac25", "s": "mais-novo", "d": 84.17, "a": "2026-02-20", "l": null}, {"c": "84ad008b", "s": "mais-novo", "d": 73.88, "a": "2026-03-02", "l": "61fe7d18-c112-48f6-b3f8-601785a8f8bf"}, {"c": "0fb047ec", "s": "mais-novo", "d": 73.83, "a": "2026-03-02", "l": null}, {"c": "a0090841", "s": "finalizado", "d": 16.96, "a": "2026-02-09", "l": null}, {"c": "1d7e0619", "s": "mais-novo", "d": 83.51, "a": "2026-02-21", "l": null}, {"c": "5802575b", "s": "mais-novo", "d": 57.96, "a": "2026-03-18", "l": "07bef070-ff2d-4cf3-aad1-68aaf7d9394d"}, {"c": "6f5eab88", "s": "mais-novo", "d": 77.92, "a": "2026-02-26", "l": "7465e374-d646-46f8-a75d-e526f4d0a38b"}, {"c": "8d62a535", "s": "mais-novo", "d": 21.75, "a": "2026-04-23", "l": null}, {"c": "8a33ad4e", "s": "finalizado", "d": 79.7, "a": "2026-02-11", "l": null}, {"c": "f646cb78", "s": "mais-novo", "d": 15.0, "a": "2026-04-30", "l": "9911daf9-5df7-450e-99fa-9658d6d71e00"}, {"c": "e3ca76f1", "s": "mais-novo", "d": 80.78, "a": "2026-02-23", "l": "091f7d06-20b3-4b6f-8d41-17160beee066"}, {"c": "fb140239", "s": "mais-novo", "d": 83.53, "a": "2026-02-21", "l": null}, {"c": "ab67bf00", "s": "mais-novo", "d": 56.89, "a": "2026-03-19", "l": null}, {"c": "6e1595d3", "s": "mais-novo", "d": 50.83, "a": "2026-03-25", "l": null}, {"c": "fd36f652", "s": "mais-novo", "d": 76.83, "a": "2026-02-27", "l": "3f2a1546-9461-4c52-938a-0f16aa067d68"}, {"c": "8c4be5d9", "s": "mais-novo", "d": 56.86, "a": "2026-03-19", "l": "c6d31744-26dc-4349-89ef-40910f805a84"}, {"c": "80ac6953", "s": "mais-novo", "d": 92.89, "a": "2026-02-11", "l": null}, {"c": "a5ef92d9", "s": "mais-novo", "d": 59.09, "a": "2026-03-17", "l": null}, {"c": "ff294c95", "s": "mais-novo", "d": 38.25, "a": "2026-04-07", "l": "63dfd21b-d384-4fea-b6ae-c4d3f6ce9ba1"}, {"c": "2069bcbe", "s": "mais-novo", "d": 83.51, "a": "2026-02-21", "l": null}, {"c": "f5c2fde9", "s": "mais-novo", "d": 16.02, "a": "2026-04-29", "l": "396bce66-2163-4fe9-8a1e-67e660510a74"}, {"c": "794bd5a6", "s": "mais-novo", "d": 83.51, "a": "2026-02-21", "l": null}, {"c": "3450e6c8", "s": "mais-novo", "d": 59.1, "a": "2026-03-17", "l": null}, {"c": "5d605ca7", "s": "mais-novo", "d": 3.26, "a": "2026-05-12", "l": "23634f46-1e04-4247-b4dd-7c04c6f882f4"}, {"c": "2287bcfe", "s": "mais-novo", "d": 79.07, "a": "2026-02-25", "l": null}, {"c": "7a93634c", "s": "mais-novo", "d": 80.03, "a": "2026-02-24", "l": null}, {"c": "ec0d0556", "s": "mais-novo", "d": 39.02, "a": "2026-04-06", "l": null}, {"c": "14fcce6b", "s": "mais-novo", "d": 84.99, "a": "2026-02-19", "l": "ca9a1102-cfdf-4b0f-a81d-07aaa094d2c9"}, {"c": "b2b7d591", "s": "mais-novo", "d": 50.81, "a": "2026-03-25", "l": null}, {"c": "89142d3e", "s": "mais-novo", "d": 56.11, "a": "2026-03-20", "l": null}, {"c": "be7b06c7", "s": "mais-novo", "d": 22.17, "a": "2026-04-23", "l": "3a87fee1-f3ab-4445-afba-279944f6e8ea"}, {"c": "07344919", "s": "mais-novo", "d": 81.16, "a": "2026-02-23", "l": null}, {"c": "5783b71e", "s": "mais-novo", "d": 0.11, "a": "2026-05-15", "l": null}, {"c": "eec474a5", "s": "mais-novo", "d": 79.14, "a": "2026-02-25", "l": null}, {"c": "cba45959", "s": "mais-novo", "d": 83.72, "a": "2026-02-21", "l": null}, {"c": "8dcf58ba", "s": "mais-novo", "d": 52.86, "a": "2026-03-23", "l": null}, {"c": "8d8affa0", "s": "mais-novo", "d": 31.17, "a": "2026-04-14", "l": null}, {"c": "b634f9d3", "s": "mais-novo", "d": 79.0, "a": "2026-02-25", "l": "03f3560c-8ec0-4a0f-aa24-c0b492bccc3a"}, {"c": "707f3363", "s": "finalizado", "d": 81.51, "a": "2026-02-11", "l": null}, {"c": "b717ba4d", "s": "mais-novo", "d": 56.85, "a": "2026-03-19", "l": null}, {"c": "7fd6be0a", "s": "mais-novo", "d": 66.01, "a": "2026-03-10", "l": null}, {"c": "0702d4ca", "s": "mais-novo", "d": 0.88, "a": "2026-05-14", "l": null}, {"c": "077cac2a", "s": "mais-novo", "d": 66.98, "a": "2026-03-09", "l": "8b7b3d6e-bc93-451f-bdd0-ef5b8d2d818d"}, {"c": "a8e5a881", "s": "finalizado", "d": 77.76, "a": "2026-02-11", "l": null}, {"c": "38ecb9ac", "s": "mais-novo", "d": 80.02, "a": "2026-02-24", "l": null}, {"c": "846c3c94", "s": "mais-novo", "d": 74.05, "a": "2026-03-02", "l": null}, {"c": "a6759222", "s": "mais-novo", "d": 62.85, "a": "2026-03-13", "l": "de50a11d-4264-4f60-b1a6-28a20f6a126f"}, {"c": "4ccce9cd", "s": "mais-novo", "d": 59.84, "a": "2026-03-16", "l": "2dd847e9-4873-46cf-9567-08f128bce905"}, {"c": "ab331e78", "s": "mais-novo", "d": 70.85, "a": "2026-03-05", "l": null}, {"c": "ee15d701", "s": "mais-novo", "d": 70.8, "a": "2026-03-05", "l": "f8b39428-4c20-456c-8113-66360678c81b"}, {"c": "e2cb2915", "s": "mais-novo", "d": 32.14, "a": "2026-04-13", "l": "90ef27a8-f3f0-4d6d-b598-96972dfe1ba9"}, {"c": "79a72ce1", "s": "mais-novo", "d": 78.13, "a": "2026-02-26", "l": null}, {"c": "21bb7485", "s": "mais-novo", "d": 81.16, "a": "2026-02-23", "l": null}, {"c": "0b01a69b", "s": "mais-novo", "d": 81.63, "a": "2026-02-23", "l": null}, {"c": "84ea08f9", "s": "mais-novo", "d": 46.16, "a": "2026-03-30", "l": "9217e401-a637-4673-825b-91709bf5b71c"}, {"c": "ec05543f", "s": "mais-novo", "d": 63.89, "a": "2026-03-12", "l": "5ca8ce04-c572-4cc2-a5e8-08ffc043d764"}, {"c": "aa20a92c", "s": "mais-novo", "d": 83.52, "a": "2026-02-21", "l": null}, {"c": "ab587d92", "s": "mais-novo", "d": 80.31, "a": "2026-02-24", "l": null}, {"c": "e6a60f65", "s": "mais-novo", "d": 83.51, "a": "2026-02-21", "l": null}, {"c": "6f52a4b9", "s": "mais-novo", "d": 70.92, "a": "2026-03-05", "l": null}, {"c": "13163e81", "s": "mais-novo", "d": 70.82, "a": "2026-03-05", "l": null}, {"c": "82d86197", "s": "mais-novo", "d": 80.93, "a": "2026-02-23", "l": null}, {"c": "b7d37588", "s": "mais-novo", "d": 74.12, "a": "2026-03-02", "l": "105835a5-96ec-4a98-9fd4-e73bf75014f2"}, {"c": "81489840", "s": "mais-novo", "d": 60.12, "a": "2026-03-16", "l": "76c90789-7d58-40ca-b516-900f8cdccb99"}, {"c": "4c9ea683", "s": "mais-novo", "d": 79.12, "a": "2026-02-25", "l": null}, {"c": "57c8a32c", "s": "mais-novo", "d": 0.69, "a": "2026-05-15", "l": null}, {"c": "e99fb14f", "s": "mais-novo", "d": 57.96, "a": "2026-03-18", "l": "c3a3f217-b438-4db2-ab3a-324dcd2e4811"}, {"c": "53602f42", "s": "mais-novo", "d": 57.03, "a": "2026-03-19", "l": "2eed3316-2255-4b8f-9c09-aa9bc79f4a3e"}, {"c": "681d2056", "s": "mais-novo", "d": 23.21, "a": "2026-04-22", "l": "49cbb0e6-e86c-4e61-9ed5-f95bf46b9a94"}, {"c": "5ff0a8e0", "s": "mais-novo", "d": 29.88, "a": "2026-04-15", "l": "7e2f9487-a344-484b-8232-013ec163c435"}, {"c": "d9c80275", "s": "mais-novo", "d": 31.08, "a": "2026-04-14", "l": "f33608b1-6c25-43e7-907b-a0c61f9ab9ea"}, {"c": "6129be50", "s": "mais-novo", "d": 77.88, "a": "2026-02-26", "l": null}, {"c": "c7350859", "s": "mais-novo", "d": 3.81, "a": "2026-05-11", "l": null}, {"c": "32dc9ca7", "s": "mais-novo", "d": 8.11, "a": "2026-05-07", "l": "b514de38-0222-4893-893c-16f273dacc97"}, {"c": "a6db16cf", "s": "mais-novo", "d": 37.9, "a": "2026-04-07", "l": null}, {"c": "5ebab376", "s": "mais-novo", "d": 28.11, "a": "2026-04-17", "l": "cc3a8087-4ac4-4baf-83bc-b704a66b9eb8"}, {"c": "52613e93", "s": "mais-novo", "d": 15.0, "a": "2026-04-30", "l": "9911daf9-5df7-450e-99fa-9658d6d71e00"}, {"c": "b7224dfe", "s": "mais-novo", "d": 80.92, "a": "2026-02-23", "l": "6be70584-5e62-451d-b7c0-ded584cbb17a"}, {"c": "baf42231", "s": "mais-novo", "d": 30.92, "a": "2026-04-14", "l": "f977082c-9dc0-4350-8557-09ca81ba3510"}, {"c": "02e0d451", "s": "mais-novo", "d": 16.02, "a": "2026-04-29", "l": "396bce66-2163-4fe9-8a1e-67e660510a74"}, {"c": "fb6a850f", "s": "mais-novo", "d": 72.91, "a": "2026-03-03", "l": "9d3e1f0c-d3fe-4359-9ee8-8d8605a731f6"}, {"c": "1834cbe3", "s": "mais-novo", "d": 81.56, "a": "2026-02-23", "l": null}, {"c": "a516b98b", "s": "mais-novo", "d": 50.93, "a": "2026-03-25", "l": "5b19e489-ae1c-427c-80cd-e9376cbad724"}, {"c": "1ae9ba76", "s": "finalizado", "d": 63.83, "a": "2026-02-11", "l": null}, {"c": "704b3d67", "s": "mais-novo", "d": 56.15, "a": "2026-03-20", "l": null}, {"c": "812bb7a0", "s": "mais-novo", "d": 57.9, "a": "2026-03-18", "l": "fa7c8c3f-7ef6-4485-9667-7ec998feff86"}, {"c": "8031938a", "s": "mais-novo", "d": 0.42, "a": "2026-05-15", "l": null}, {"c": "12d8dab9", "s": "mais-novo", "d": 80.68, "a": "2026-02-24", "l": "a35734f8-0976-4d5f-938a-61475c2224b3"}, {"c": "08aa3492", "s": "mais-novo", "d": 83.7, "a": "2026-02-21", "l": null}, {"c": "5d8bba05", "s": "mais-novo", "d": 83.61, "a": "2026-02-21", "l": null}, {"c": "d058f1ea", "s": "mais-novo", "d": 81.45, "a": "2026-02-23", "l": null}, {"c": "e3c6dcc1", "s": "mais-novo", "d": 92.86, "a": "2026-02-11", "l": "f6735c50-ae7c-4d84-a73b-ad259c5e597c"}, {"c": "2f12642e", "s": "mais-novo", "d": 45.06, "a": "2026-03-31", "l": "7cd2367a-b01c-49bf-84e8-1ff0cb21d4db"}, {"c": "b9d3530e", "s": "mais-novo", "d": 55.98, "a": "2026-03-20", "l": null}, {"c": "3c5b6580", "s": "mais-novo", "d": 83.51, "a": "2026-02-21", "l": null}, {"c": "8cb1fc1d", "s": "mais-novo", "d": 49.15, "a": "2026-03-27", "l": "14e40d34-61a0-4aee-b6c8-bc630e878f56"}, {"c": "675a4b2b", "s": "mais-novo", "d": 72.6, "a": "2026-03-04", "l": null}, {"c": "552711dc", "s": "mais-novo", "d": 71.09, "a": "2026-03-05", "l": null}, {"c": "c4f0d6a2", "s": "mais-novo", "d": 81.7, "a": "2026-02-23", "l": null}, {"c": "8027e84c", "s": "mais-novo", "d": 70.17, "a": "2026-03-06", "l": "20926473-2ada-46b2-814c-84d93470bd66"}, {"c": "6f1d9461", "s": "mais-novo", "d": 37.1, "a": "2026-04-08", "l": "f6741d84-21a7-4f71-b56a-288fc1b5d59d"}, {"c": "22cb5c95", "s": "mais-novo", "d": 84.99, "a": "2026-02-19", "l": "23634f46-1e04-4247-b4dd-7c04c6f882f4"}, {"c": "3ce772ce", "s": "mais-novo", "d": 67.26, "a": "2026-03-09", "l": null}, {"c": "53701f1b", "s": "mais-novo", "d": 38.92, "a": "2026-04-06", "l": "fd2a047e-1e6e-426f-abaf-68bf8f30944b"}, {"c": "404573b6", "s": "mais-novo", "d": 80.96, "a": "2026-02-23", "l": null}, {"c": "aceac1b7", "s": "mais-novo", "d": 80.24, "a": "2026-02-24", "l": null}, {"c": "d92d52a6", "s": "mais-novo", "d": 48.93, "a": "2026-03-27", "l": "85c04489-0298-41b2-983b-3f5cece1655a"}, {"c": "aba93801", "s": "mais-novo", "d": 71.18, "a": "2026-03-05", "l": null}, {"c": "200ab416", "s": "mais-novo", "d": 57.0, "a": "2026-03-19", "l": null}, {"c": "a882d34c", "s": "mais-novo", "d": 92.85, "a": "2026-02-11", "l": null}, {"c": "bf5262d2", "s": "mais-novo", "d": 56.12, "a": "2026-03-20", "l": null}, {"c": "deba9f7b", "s": "mais-novo", "d": 56.17, "a": "2026-03-20", "l": null}, {"c": "aa4efff6", "s": "mais-novo", "d": 76.71, "a": "2026-02-28", "l": null}, {"c": "c87f3103", "s": "mais-novo", "d": 9.99, "a": "2026-05-05", "l": "0c62886c-d680-482f-bc56-cbd49b466134"}, {"c": "c5639dbd", "s": "mais-novo", "d": 65.06, "a": "2026-03-11", "l": null}, {"c": "c138da1e", "s": "mais-novo", "d": 81.68, "a": "2026-02-23", "l": null}, {"c": "85c6936d", "s": "mais-novo", "d": 56.14, "a": "2026-03-20", "l": null}, {"c": "74cb3827", "s": "mais-novo", "d": 35.92, "a": "2026-04-09", "l": "90610add-f57f-4ad6-9190-aa85fbc537a6"}, {"c": "01327fd0", "s": "mais-novo", "d": 78.97, "a": "2026-02-25", "l": null}, {"c": "7770423e", "s": "mais-novo", "d": 65.99, "a": "2026-03-10", "l": null}, {"c": "9ecc1361", "s": "mais-novo", "d": 70.83, "a": "2026-03-05", "l": null}, {"c": "aa12cde9", "s": "mais-novo", "d": 56.86, "a": "2026-03-19", "l": null}, {"c": "16d62a35", "s": "mais-novo", "d": 85.09, "a": "2026-02-19", "l": null}, {"c": "cab70dbe", "s": "mais-novo", "d": 71.15, "a": "2026-03-05", "l": null}, {"c": "6d6bd424", "s": "mais-novo", "d": 1.94, "a": "2026-05-13", "l": "b029cf39-0b88-4d2f-90b9-4cd45df35f8e"}, {"c": "e73d8a10", "s": "mais-novo", "d": 9.98, "a": "2026-05-05", "l": "328b994e-2878-47ee-8eb0-e36f1abff748"}, {"c": "d77df5b3", "s": "mais-novo", "d": 50.83, "a": "2026-03-25", "l": null}, {"c": "e24be9c6", "s": "mais-novo", "d": 70.16, "a": "2026-03-06", "l": "8f73b759-f7ba-4aa5-bb20-805299e631cb"}, {"c": "7862d347", "s": "mais-novo", "d": 15.0, "a": "2026-04-30", "l": "9911daf9-5df7-450e-99fa-9658d6d71e00"}, {"c": "5afb8e43", "s": "mais-novo", "d": 81.71, "a": "2026-02-23", "l": null}, {"c": "e1b17d7e", "s": "mais-novo", "d": 76.93, "a": "2026-02-27", "l": null}, {"c": "2d82fd00", "s": "mais-novo", "d": 56.15, "a": "2026-03-20", "l": null}, {"c": "3938583f", "s": "mais-novo", "d": 84.99, "a": "2026-02-19", "l": "ecc11160-51b5-4449-bbff-8e8ddd3bfc60"}, {"c": "aea506ea", "s": "mais-novo", "d": 73.2, "a": "2026-03-03", "l": null}, {"c": "1d079514", "s": "mais-novo", "d": 80.88, "a": "2026-02-23", "l": null}, {"c": "d0bed3bc", "s": "mais-novo", "d": 1.94, "a": "2026-05-13", "l": "b029cf39-0b88-4d2f-90b9-4cd45df35f8e"}, {"c": "24cf1883", "s": "mais-novo", "d": 50.85, "a": "2026-03-25", "l": null}, {"c": "d80d0d01", "s": "mais-novo", "d": 50.84, "a": "2026-03-25", "l": null}, {"c": "4718a105", "s": "mais-novo", "d": 78.82, "a": "2026-02-25", "l": null}, {"c": "9db59064", "s": "mais-novo", "d": 92.89, "a": "2026-02-11", "l": null}, {"c": "375fc280", "s": "mais-novo", "d": 80.99, "a": "2026-02-23", "l": null}], "valor_map": {"010d9082-6206-40f3-a3a9-8d3ea005a3cd": 8160, "0252c161-1ed4-490a-afb1-31d25f06b677": 6067.5, "03f3560c-8ec0-4a0f-aa24-c0b492bccc3a": 3626, "03ff3b19-fccd-488a-bb41-436782337700": 13112.44, "05da5244-d67b-48b8-b39b-98c525154c33": 15041.61, "062ef38a-d1a9-48e2-bfc3-04edd3f22bc3": 15870, "06d4ec34-4fbd-4d20-b920-0a3df4880362": 14264.25, "071ee9c2-9166-4808-b831-14f1a5743f56": 10005.67, "074277be-6c46-4d18-92d5-dbc20321b125": 33066, "07504aa4-af8b-4624-a229-6e6734a20470": 9732.78, "07bef070-ff2d-4cf3-aad1-68aaf7d9394d": 9585.39, "08c42a4e-a550-4caf-9c2a-f9ca545b864a": 3967.5, "091f7d06-20b3-4b6f-8d41-17160beee066": 8889.99, "09a5c190-455b-4d3e-bc8d-717b7928bb53": 6948, "0b6807b4-c923-43ca-8578-6680e828e390": 18375, "0c8bc4b9-4fdb-4242-9e67-18777541e052": 4567.5, "0d93feaf-3c1b-4b8e-a533-7f7180b599f1": 8054.5, "0f34f155-3f58-466f-9f9c-1c06dd24d68a": 9804, "0faf4ff0-0b2c-4995-a53d-53c3f2c1af18": 58045.02, "103cf09d-be34-4b84-bb93-f9681831c114": 23484, "105835a5-96ec-4a98-9fd4-e73bf75014f2": 17169, "116fc4f5-15dc-4d7b-b0e7-fdec7f228c35": 20869.98, "1483da1d-b754-41c6-ae75-2fa58e598068": 15003.47, "14d751cb-8958-4e48-a176-62783a270a48": 224700, "14e40d34-61a0-4aee-b6c8-bc630e878f56": 5674, "1608a40f-9253-4f4d-bfde-29b0f66691f3": 13585, "1653d291-9911-419c-b32b-8481d20ffa5f": 25760, "1665c76c-d373-4aeb-b59c-bf29591ebfe3": 4900, "16d330d8-290c-4c77-aed9-dbf2bbbcae56": 3690, "17a8993d-02ea-46b6-93b7-e9f9943e4f0d": 23805, "182bde3a-2ba2-4d1d-b72b-4967d0de8f18": 10435, "186dd07c-526b-4666-b73a-bc73fdbc2ecc": 7418.48, "1905ed1b-6c01-452e-97fd-c0b01e43e4f0": 16053.31, "19d7cbcb-f4c3-42f1-bcef-31f7365885bf": 12104.6, "1b128871-628d-4e39-ad81-37981996599b": 28935.48, "1b370c8d-f764-4278-a96e-45a598a2b77d": 3967.5, "1b5a97f3-308e-49f6-a76a-0de95a3ac1b4": 8850, "1b61f7e5-78d9-4a68-a668-d35cb935caad": 6930, "1b7c223c-4fe0-474a-867e-7ea28081d820": 21902.58, "1bcf8092-a62f-406f-a350-300d38758641": 19837.5, "1c8569de-f0d7-4a64-893e-e12986100895": 4750, "1caac3aa-3ea0-436a-af2d-342eeec32b92": 12081.75, "1cc846ed-6dcd-4ab5-94cb-98db2ab5d7ca": 12887.2, "1d43c20c-0881-49c9-bddb-84afbf292ed5": 15235.2, "1f8da9ff-b4fa-4b1a-86e2-96a064dbd7b7": 13400.36, "20926473-2ada-46b2-814c-84d93470bd66": 15999.96, "215dc86c-6a54-416c-8d69-7d3600349001": 8056.14, "22b361d5-1ce0-46c6-99d3-1ccd2dc2b74c": 13328.53, "23634f46-1e04-4247-b4dd-7c04c6f882f4": 13789.8, "23c76a86-138f-4c07-a391-d55e0bf276f5": 8850, "23fdbcc6-dc6b-4064-9ee3-564acfa18625": 7462.5, "256ff17a-4eea-491c-988f-b24c51c3692c": 6348, "260146b3-b405-4ac0-817d-15b308c28ca0": 5713.2, "287456df-78d6-43b5-ae92-9f61c27893e3": 15870, "28ec2f38-e6ce-4906-b775-231783be66d7": 17695.98, "29a3c47c-961b-472c-b639-aba90f795dbc": 100065.28, "29f99180-1184-451a-a531-bfd186199f65": 6051.82, "2a71db1a-d3cb-4fa3-80b5-917a360ee403": 6343.53, "2d5095e5-0fb8-4506-bdfd-d58f75488145": 3967.5, "2d71fa79-334b-4764-bdcc-99a7f4b57c2e": 4761, "2dd847e9-4873-46cf-9567-08f128bce905": 9585.39, "2e5e48a6-a65b-4dca-ab6d-b732de5ae818": 11990.76, "2eed3316-2255-4b8f-9c09-aa9bc79f4a3e": 6348, "2f8ae894-3a63-4b55-9d05-380c3acf88b1": 7141.88, "30261138-0c79-4d9c-8029-f0fcdf3d8cde": 3414832, "3370f9ba-9a7f-4415-a8da-e57fb67802cf": 50857.8, "3510de52-a962-4edf-8cce-bb7dbe593216": 4500, "355cb19d-a319-4352-a829-54053d58e852": 11800, "37ecf97f-e69f-48e5-a5e8-33cf9f6acc65": 8540.71, "3843bbf5-59df-4774-a5f0-c70f902db35f": 53642.5, "38fbc55b-ca14-4e81-98be-42c106bacf9a": 11148, "396bce66-2163-4fe9-8a1e-67e660510a74": 13010.2, "3a87fee1-f3ab-4445-afba-279944f6e8ea": 26935.64, "3b50b575-438d-4aac-b8c6-f762872b9b90": 26400, "3bab248a-7d1c-4d3a-94a3-66c9e8f99764": 23476.92, "3ca4c8b9-079f-4abb-8e56-cd56ce8ae8e3": 8848, "3ca5bdb5-a372-41ba-bf62-f3b3e9af8dee": 36640, "3ce398b5-3ecd-4bde-aa88-d67b1efb27f2": 3600, "3dfd7254-6560-4554-8e2e-456c3067b393": 4761, "3e0b9e39-e285-4978-a5b2-51db5d7b0194": 15266.65, "3eb9b574-0067-4cce-9ae5-f676232dc45f": 5554.5, "3f2a1546-9461-4c52-938a-0f16aa067d68": 15013.6, "3f4cdda3-68c6-4193-ab26-891f983580e4": 3967.5, "3f92f9f4-ac10-4e6e-8c63-b4422a6397ae": 9522, "3fb2c109-6a26-4757-884f-282aefc860c8": 35740.02, "3fc4cba8-ff62-4040-be94-31033c76cbd7": 3967.5, "402244a9-fef5-4f3f-80b5-29e11ad742be": 36482.6, "404bc257-94d8-4551-a7a5-dd21692144af": 9597.97, "4073e22f-7a32-44a4-aec6-4260fdc8abf0": 8461, "417743cb-d34c-49a6-bbb9-af1e4fbe1bf0": 3174, "498cc854-0f4f-4809-8bef-0f060bd348fd": 9918.75, "4998a2bb-a43d-4e6d-9dc6-4d8d33e19b26": 38478.05, "49cbb0e6-e86c-4e61-9ed5-f95bf46b9a94": 0, "4ab4c533-a1d2-46f8-a595-a59ae6df52ea": 20019.48, "4d1527a6-9feb-49bc-9d98-4407d8a77351": 15116.8, "4db96af8-73c9-4f5e-b63b-c1c1515c3d8f": 23805, "4ef3c419-cb1d-4732-81f9-a90d183bcdd1": 55704, "4fbf99d3-2170-404f-9b6e-0abbf9ef68bb": 11617.59, "5183d177-a2a7-4078-8bf0-e0d3533dce99": 15800.4, "53bbcd40-df99-43f6-afbf-556342eeeb49": 15109, "5501a8e9-f0fb-4315-90ae-40d034b831d5": 13195, "560caa39-156e-4282-9697-c79a8668d86d": 4761, "575052bb-e694-42ea-8db9-1aaf06479037": 21274.4, "583d09be-cca1-4782-9e44-050ff5997df5": 3967.5, "59272a88-6eeb-479a-beb9-70880ba60205": 20799.5, "59dcabcd-7d5b-4c55-a87a-dcc5ff3f6b0e": 9068.51, "5ae9b122-7191-4884-a897-344e778171ad": 20870, "5b126e63-1960-49f6-8550-0cbc80f0d36e": 19650, "5b19e489-ae1c-427c-80cd-e9376cbad724": 20163.5, "5ca8ce04-c572-4cc2-a5e8-08ffc043d764": 4761, "5d89cd82-797d-4f09-9039-aaf8aa412ee4": 5380.5, "5e1a75e5-6b3e-444a-9ae5-df3a8b671f81": 12000.6, "5f2b2ccd-06bc-4ae8-96b1-863b70213f75": 12210, "5fee19f7-c0f7-49aa-a7a9-6fbff433a434": 29240.75, "607f3f9d-44a8-4e10-99ce-2e80dcbab4cd": 29622.03, "614623de-3516-4704-a2fa-8945315eaa25": 6840, "61fe7d18-c112-48f6-b3f8-601785a8f8bf": 10200, "6243abde-f239-419d-a5b7-2df1b0d1eb80": 4761, "6343a197-dc5a-4d44-abcf-6131b6a34544": 19639.6, "64327384-017f-4e86-8825-3e4634868c71": 16902.51, "65f289da-e7d1-472b-9716-ed67f1d5b287": 5856.6, "673f66aa-b03f-4162-ab37-7997bd260df6": 26280.07, "681b2649-c2d5-4a5b-b0e8-45636a2da3be": 14702.5, "68fdc5af-31ff-4504-abbe-75b2f4de56e4": 21700, "69a65a7d-a965-48a8-9e46-e2caf72f3db8": 52185.8, "6a9eaa88-9948-45ac-996a-a2d059a5883c": 2975.63, "6be70584-5e62-451d-b7c0-ded584cbb17a": 71740, "6dacce95-ff99-45c5-a82e-e26bbaccfcb3": 43326.24, "70eb2a0a-ecef-4e6a-8deb-cdf9403027c2": 10000, "717d3d9c-78be-48b9-b652-9d7578686942": 5554.5, "719ff82e-e896-4276-8797-970d049ce7e9": 16695.96, "734ef3d7-2575-4133-bc50-0edb3f59cb5d": 17404.52, "744059be-6318-4a7a-8139-8c39a53adf85": 158551.2, "7465e374-d646-46f8-a75d-e526f4d0a38b": 4100, "76c90789-7d58-40ca-b516-900f8cdccb99": 7935, "781fd128-3e10-4a22-82c9-86363146dfbb": 24829.28, "786e76b1-7be8-4528-abe1-817480ef0a73": 50288, "7b451fdc-309a-4d85-b370-34ee8903091a": 3967.5, "7cd2367a-b01c-49bf-84e8-1ff0cb21d4db": 6456.61, "7e2a914a-5f63-4258-82ae-4967412b119a": 9598.86, "7e2f9487-a344-484b-8232-013ec163c435": 19302.52, "7f979d07-dc07-416f-be35-67b3862222ef": 43005.12, "804797ad-44f2-40f3-8296-df8bce1e7c2d": 9522, "8399ee42-2814-4322-a93e-7af88be7605e": 7600, "85c04489-0298-41b2-983b-3f5cece1655a": 34240, "864baebe-5611-4267-a52c-e42613a9807d": 27524.16, "86a6d419-3ea1-4d49-9224-d0f263196f35": 14521.98, "87326601-5a23-46b7-9bf3-6f946e1c0302": 67491.48, "874a3894-1325-46e2-aa7b-71b2667eb0a8": 11502.4, "88469461-44f6-4d1e-8c28-8409ac96cc5b": 17858.1, "88618ca0-1bda-4c7d-abfa-4bf75293e0af": 17748, "889bb0ca-a6df-40d5-bb6c-9ba80bff574c": 5554.5, "8a3edfe1-0cf9-4c64-ac49-ad7120a45c66": 16386.26, "8a65635e-f963-4ba1-91ad-8b70ab952f5c": 10449.99, "8a8ddf1c-d8e4-4908-a991-aeddc2be6f7f": 5665.59, "8b7b3d6e-bc93-451f-bdd0-ef5b8d2d818d": 8331.75, "8c56af78-eb0b-439f-9c6e-aa4cbbb143a2": 15870, "8c8964bd-4647-4a27-a221-b1f8c9e21cf0": 38400, "8d7f8a70-3b53-4b89-9dad-0e0bf7e3aaa1": 15235.2, "8d9eedf4-c42e-49b5-8622-044ebe0f7868": 31566, "90b58b58-2e5a-4f21-8552-aa36f5434692": 12598.59, "90ef27a8-f3f0-4d6d-b598-96972dfe1ba9": 7935, "9213c35c-e221-41f5-80c2-61db2336db0c": 10141.5, "92798538-0ee0-4ef8-b04d-6b88e166b6df": 3967.5, "9345cb92-e1b4-44d6-85b7-cafff61c14e2": 4761, "9377b244-b884-4f91-b641-1ca0ba29ffbd": 17696, "93c551b6-e5b6-48b7-b67e-2a910251cf0d": 6561, "96b2ab21-fd58-4b44-a9b6-b79741d0c315": 9526.86, "971eaedb-e6ca-4e02-a99d-ef1a89af17a7": 36739.98, "985a43c1-8aaa-41c0-b510-3bf875ddf875": 8436, "9911daf9-5df7-450e-99fa-9658d6d71e00": 25718, "9cf67949-f825-4b43-9f36-991a9da90737": 11109, "9d3e1f0c-d3fe-4359-9ee8-8d8605a731f6": 21000, "9d7ed9da-7d85-4bff-b79d-e5bb4b90c82b": 41738.16, "9d917f7c-4835-4474-a6db-94c7954c5223": 25121.25, "9ed7d6bc-a694-4303-aebf-2902fa2858cc": 4770.75, "9fb39b06-7ec7-4a7e-b22a-7ce942bfbf32": 13275.93, "a051d5a0-2d17-4e2c-818f-dfb58ad4e772": 5951.25, "a073ff62-ac38-423d-be97-c100bba19b83": 42175, "a0dd7420-751d-4d14-92bb-188da8616892": 23752, "a139ee04-e0df-49f6-ab3e-afe12bdaebb3": 29038.75, "a1ea10da-0b83-48a0-8769-4847e1bb57d1": 35708.58, "a20dcbdb-9a01-49b3-8210-3dc67366831d": 10780.6, "a2aa2a79-3e82-45bc-9e3e-88e61842c0f7": 12887.2, "a35734f8-0976-4d5f-938a-61475c2224b3": 7917, "a47b184c-1774-4a1b-987f-1384800b5d6d": 54436, "a7949fb7-71f0-43c0-a361-82f22f4c21c1": 12155.52, "a8fe662b-676b-4c2b-9ed2-26886fd3decc": 12522, "a971133a-6fba-42aa-976d-4b5e2d9e2198": 10220.01, "aa67c368-76e1-4360-ac97-858faa1691a5": 4874.73, "acf84995-3650-4537-9522-4cc9c9660bd6": 11109, "ad422985-8598-406e-923f-d54dbbcb0b65": 16696, "adbaf770-a0f6-45c5-b507-ca8e88607cd4": 14337, "af95ea9f-e7db-41ca-81d5-cfc78991009b": 6332.7, "b01cdd11-9c52-47eb-b394-b5b7228e5c54": 91782.36, "b029cf39-0b88-4d2f-90b9-4cd45df35f8e": 19752.6, "b214def7-1b95-488a-b8c4-05045591c692": 25837.5, "b4304101-439b-4cb6-833a-750c4ce3c6e4": 5554.5, "b4d3890c-e00c-4d5d-85f3-c36cc2d4954c": 10004.61, "b4f34e07-960d-470a-8286-a2b417ebf4f2": 5951.25, "b514de38-0222-4893-893c-16f273dacc97": 25718, "b561274a-be85-40e4-b1fe-2501e2f43248": 27030, "b5caff42-772b-44ce-9910-b9f336ed0fdc": 2999.43, "b6929dcc-2bda-4050-b1fe-c8a7ef312759": 72899.16, "b704ca7b-49d4-4c9f-bb3a-bc37e63a7e24": 5382.81, "b75af836-4874-4606-adb1-db9de97d5040": 180000, "b7a1a051-1226-4740-9e20-c57b97c535e5": 44674.2, "bbab6f07-2da8-4501-b510-6e1d5582ced1": 8996.54, "bdeaa9db-a9e5-4948-94d3-ac0f12a17cff": 28007.2, "c0463239-c6ef-488e-adb6-8bd502da3017": 20196.96, "c1645611-6cec-4ee1-8670-3bb35f25ecf2": 5510, "c2444c31-7c7f-4e36-b33b-237465349446": 4761, "c2a7326f-4d3f-4b88-abb2-7b3aced20438": 3967.5, "c31f9504-a51d-41c0-95a1-46ec4472fb6b": 11580, "c3a3f217-b438-4db2-ab3a-324dcd2e4811": 11935.02, "c5cbeb96-385e-4d5b-b773-d122c9088786": 8848, "c68797b9-040b-4d00-b7a9-3101b51c2004": 3967.5, "c6d31744-26dc-4349-89ef-40910f805a84": 5554.5, "c9ae87bf-d575-4bf5-9c94-b866796c3c98": 42175, "ca9a1102-cfdf-4b0f-a81d-07aaa094d2c9": 31248, "cffcb908-7cf4-4ba8-8a4c-39672ba0ab0b": 4900, "d0357616-c37c-4afc-8ac5-5e53ddb6a6ad": 17696.01, "d1949a02-1736-4bbd-a69b-61bcb4799d07": 29757.2, "d2039e7c-c009-4ad6-93f3-13084a822f1d": 6467.5, "d252f960-fdda-4941-b270-7685f3288fec": 9967.5, "d277429f-e450-4d27-8624-2437cfc9530f": 52075, "d2a7bc78-6886-41d0-8009-9e5d4b1b5e63": 12676.88, "d3e633ef-bc1d-4391-9dca-be9fbd77917f": 15089.8, "d3f8e417-b6e6-4a49-8a1a-5f9a525afcb0": 16026.5, "d5154306-db4a-46f0-95d2-b284d00398b3": 16470, "d56b0efd-01bd-45dc-9b1e-4b740b053df3": 16390.55, "d70fe642-073b-441d-9296-fcaafc0a962f": 8848, "daa3d054-e938-4534-a258-1a1eb2e94a9e": 20870, "db524de6-0f87-4250-8d40-e9b1f0e3b42a": 44486, "dc397016-3bd5-4bb5-af17-8439ada4bc26": 12565.8, "dcfa25aa-340c-43ec-a6ae-7277b4585666": 13511.76, "ddb28cf7-2264-4253-8f00-25bcec026ebe": 7491, "de50a11d-4264-4f60-b1a6-28a20f6a126f": 7174, "df464f6e-c65a-40cf-8255-65b91f412d5c": 20400, "dfeddb81-5a70-4a43-9b7d-fbf1ee1fc519": 10632.9, "e31dcb09-3875-48e6-a612-c15f6c2f8ffa": 7141.5, "e48abfb1-f4e7-4733-a0b6-055e5c966383": 22044.5, "e4df78e8-68aa-4c55-bf42-5a09352aa9b9": 3967.5, "e6517f53-55a6-424e-8411-92c8a0021f1d": 14902.5, "ecc11160-51b5-4449-bbff-8e8ddd3bfc60": 16100, "ed9c0254-ed9e-42e6-af3f-f048559037c2": 4404.4, "f1d040e8-0014-4a9c-a4fc-877796f238e1": 43088.04, "f328d4e7-b186-45e3-8c24-525fee1ea5c0": 54577.6, "f33608b1-6c25-43e7-907b-a0c61f9ab9ea": 16696, "f44a585e-b008-4b9f-aae1-9539cf85e626": 4761, "f6735c50-ae7c-4d84-a73b-ad259c5e597c": 14000, "f6741d84-21a7-4f71-b56a-288fc1b5d59d": 6904.98, "f782b2da-b17e-4bc4-8587-9f2c2184d3c7": 16695.99, "f81a865c-46d8-4c3c-934f-e437d40bf2d2": 5999.53, "f8425009-53c0-4d90-8a25-0135dd6b7055": 10434.96, "f8a2ca89-2f98-43f5-ba22-ec2cae4a033e": 1428.3, "f8b39428-4c20-456c-8113-66360678c81b": 7556.37, "f977082c-9dc0-4350-8557-09ca81ba3510": 21839.04, "f9e92b2d-a18c-4e84-a189-05fdd27642d7": 3967.5, "fa7c8c3f-7ef6-4485-9667-7ec998feff86": 5111.49, "fa995b70-6715-4330-b347-bd47ef571180": 42175, "fac40816-44af-4007-8d12-461a2afadaaa": 5200, "fc817d28-59aa-4362-bd06-cc54221ef99e": 4761, "fd2a047e-1e6e-426f-abaf-68bf8f30944b": 3967.5, "fe0e2554-c196-4874-8fb9-37ac9c0a523a": 13522, "ff72c6cb-f064-4c66-8f5c-04197003ff25": 8760.53, "ffc7257e-f1cd-4018-8687-0029241c287c": 16663.5, "fff13194-0493-4201-8b60-be79b0f1e594": 29330.01, "fff9f5da-18be-43c8-8a59-88545770cf37": 12294.26}}</script>
+
+  <script>
+    const DATA = JSON.parse(document.getElementById("funilData").textContent);
+    const STAGES_META = DATA.stages_meta;
+    const ROWS = DATA.rows;           // [{c,s,d,a,l}]
+    const VALOR_MAP = DATA.valor_map; // {lead_id: valor}
+
+    // Estado do filtro de período
+    const state = {
+      period: "all", // all | month | lastMonth | year | custom
+      periodFrom: null,
+      periodTo: null,
+    };
+    let stages = [];
+    let totals = {};
+
+    // ===== Period helpers =====
+    function getPeriodRange(period) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      const iso = (dt) => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+      if (period === "month") return [iso(new Date(y, m, 1)), iso(new Date(y, m+1, 0))];
+      if (period === "lastMonth") return [iso(new Date(y, m-1, 1)), iso(new Date(y, m, 0))];
+      if (period === "year") return [iso(new Date(y, 0, 1)), iso(new Date(y, 11, 31))];
+      if (period === "custom" && state.periodFrom && state.periodTo) return [state.periodFrom, state.periodTo];
+      return [null, null];
+    }
+    function periodLabelText(period) {
+      if (period === "all") return "Todo o período";
+      if (period === "month") return "Mês atual";
+      if (period === "lastMonth") return "Mês anterior";
+      if (period === "year") return "Este ano";
+      if (period === "custom" && state.periodFrom && state.periodTo) {
+        const fmt = (s) => { const [y, m, d] = s.split("-"); return `${d}/${m}/${y.slice(2)}`; };
+        return `${fmt(state.periodFrom)} – ${fmt(state.periodTo)}`;
+      }
+      return "Personalizado";
+    }
+
+    // ===== Agregação client-side =====
+    // recomputa `stages` e `totals` baseado em `state.period`
+    function recomputeData() {
+      const [from, to] = getPeriodRange(state.period);
+      const filteredRows = (from && to)
+        ? ROWS.filter((r) => r.a >= from && r.a <= to)
+        : ROWS;
+
+      // agrega por stage_slug
+      const agg = {}; // slug -> { occupancies, days[], valor, seenClientesInStage }
+      const clientes_unicos = new Set();
+      const clientesComValor = new Map(); // cliente_id -> valor (1 por cliente)
+      for (const r of filteredRows) {
+        const a = agg[r.s] || (agg[r.s] = { occupancies: 0, days: [], valor: 0, seenInStage: new Set() });
+        a.occupancies++;
+        if (r.d != null) a.days.push(r.d);
+        clientes_unicos.add(r.c);
+        if (r.l && VALOR_MAP[r.l] != null) {
+          const v = Number(VALOR_MAP[r.l]) || 0;
+          // KPI total: 1 valor por cliente, sem multi-etapa
+          if (!clientesComValor.has(r.c)) {
+            clientesComValor.set(r.c, v);
+          }
+          // Por etapa: 1 valor por cliente DENTRO da etapa (não duplica se cliente tem 2 tasks na mesma stage)
+          if (!a.seenInStage.has(r.c)) {
+            a.seenInStage.add(r.c);
+            a.valor += v;
+          }
+        }
+      }
+      // Pipeline value = soma dos valores únicos por cliente
+      const pipelineValue = [...clientesComValor.values()].reduce((x, y) => x + y, 0);
+      // Soma dos valores das etapas (com overlap multi-stage) — útil pra mostrar "valor parado em cada etapa"
+      const stageValueSum = Object.values(agg).reduce((x, a) => x + a.valor, 0);
+
+      function median(arr) {
+        if (!arr.length) return null;
+        const s = arr.slice().sort((x, y) => x - y);
+        const mid = Math.floor(s.length / 2);
+        return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+      }
+
+      stages = STAGES_META.map((meta) => {
+        const a = agg[meta.slug];
+        if (!a || a.occupancies === 0) {
+          return {
+            ...meta,
+            clientes: 0,
+            avg_days: null,
+            median_days: null,
+            min_days: null,
+            max_days: null,
+            total_value: 0,
+          };
+        }
+        const avg = a.days.length ? a.days.reduce((x, y) => x + y, 0) / a.days.length : null;
+        return {
+          ...meta,
+          clientes: a.occupancies,
+          avg_days: avg,
+          median_days: median(a.days),
+          min_days: a.days.length ? Math.min(...a.days) : null,
+          max_days: a.days.length ? Math.max(...a.days) : null,
+          total_value: a.valor,
+        };
+      });
+
+      // Finalizados (etapa is_final)
+      const finalStage = stages.find((s) => s.is_final) || { clientes: 0, avg_days: null };
+      totals = {
+        unique_clients: clientes_unicos.size,
+        clientes_com_valor: clientesComValor.size,
+        total_occupancies: filteredRows.length,
+        in_production: stages.filter((s) => !s.is_final).reduce((x, s) => x + s.clientes, 0),
+        finalized: finalStage.clientes,
+        avg_lead_time_days: finalStage.avg_days,
+        pipeline_value: pipelineValue,      // sem overlap (1 valor por cliente)
+        stage_value_sum: stageValueSum,     // soma dos valores das etapas (com overlap)
+      };
+    }
+    recomputeData();
+
+    // Modo tela cheia via ?view=full
+    if (new URLSearchParams(location.search).get("view") === "full") {
+      document.body.classList.add("full-view");
+      document.title = "Funil de Produção · Apresentação";
+    }
+
+    const fmtInt = (n) => (Number(n) || 0).toLocaleString("pt-BR");
+    const fmtBRL = (n) => {
+      const v = Number(n) || 0;
+      if (v >= 1_000_000) return "R$ " + (v / 1_000_000).toFixed(2).replace(".", ",") + " M";
+      if (v >= 1_000) return "R$ " + (v / 1_000).toFixed(1).replace(".", ",") + " k";
+      return "R$ " + v.toFixed(0).toLocaleString("pt-BR");
+    };
+    const fmtBRLfull = (n) => "R$ " + (Number(n) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const fmtDays = (d) => {
+      if (d == null) return "—";
+      if (d < 1) {
+        const hours = d * 24;
+        if (hours < 1) {
+          const mins = Math.round(hours * 60);
+          return mins + " min";
+        }
+        return hours.toFixed(1).replace(".", ",") + "h";
+      }
+      return d.toFixed(1).replace(".", ",") + "d";
+    };
+
+    // ===== KPIs (re-renderizáveis) =====
+    function renderKPIs() {
+      document.getElementById("kpiTotal").textContent = fmtInt(totals.unique_clients);
+      // KPI: valor único por cliente (sem overlap multi-etapa) — esse é o "valor real no funil"
+      document.getElementById("kpiValor").textContent = fmtBRL(totals.pipeline_value || 0);
+      document.getElementById("kpiValorSub").textContent = `${fmtBRLfull(totals.pipeline_value || 0)} em ${fmtInt(totals.clientes_com_valor || 0)} clientes (vendas efetivas no CRM)`;
+      document.getElementById("kpiFinal").textContent = fmtInt(totals.finalized);
+      document.getElementById("kpiLead").textContent = totals.avg_lead_time_days
+        ? totals.avg_lead_time_days.toFixed(1).replace(".", ",") + " d"
+        : "—";
+      const kpiTotalFoot = document.querySelector("#kpiTotal + .kpi-foot");
+      if (kpiTotalFoot) {
+        kpiTotalFoot.textContent = `${fmtInt(totals.unique_clients)} clientes · ${fmtInt(totals.total_occupancies)} ocupações no funil`;
+      }
+    }
+
+    // ===== Bottleneck detection =====
+    // Heurística: gargalo quando média é muito maior que a mediana (cauda longa de presos)
+    // ou quando média absoluta passa de 30 dias com pelo menos 5 clientes.
+    function isBottleneck(s) {
+      if (!s.clientes || s.clientes === 0) return false;
+      if (s.avg_days == null) return false;
+      if (s.median_days != null && s.median_days > 0) {
+        if (s.avg_days / s.median_days > 1.6 && s.avg_days > 14) return true;
+      }
+      return s.avg_days > 30 && s.clientes >= 5;
+    }
+
+    // ===== Flow funnel (lateral, estilo rio) =====
+    const flowEl = document.getElementById("flowFunnel");
+
+    function renderFlow(scaleMode) {
+      const maxClientes = Math.max(...stages.map(s => s.clientes), 1);
+      const totalAll = stages.reduce((a, s) => a + s.clientes, 0);
+      const N = stages.length;
+      const colW = 180;
+      const totalW = N * colW;
+      const svgH = 260; // altura do SVG
+      const midY = svgH / 2;
+      const maxFillH = svgH * 0.86; // altura máxima da onda
+
+      // Calcular altura da onda em cada coluna
+      const heights = stages.map((s) => {
+        if (s.clientes === 0) return 6; // linha bem fina pra etapa vazia
+        let frac;
+        if (scaleMode === "linear") {
+          frac = s.clientes / maxClientes;
+        } else {
+          frac = Math.sqrt(s.clientes / maxClientes);
+        }
+        return Math.max(maxFillH * frac, 16);
+      });
+
+      // Pontos de ancoragem por coluna (centro horizontal de cada coluna)
+      const xs = stages.map((_, i) => i * colW + colW / 2);
+
+      // Construir path da forma "rio": top vai esquerda→direita, bottom vai direita→esquerda
+      // Usa cubic bezier entre pontos vizinhos para curvas suaves
+      function buildPath(side) {
+        // side = "top" ou "bottom"
+        const pts = stages.map((s, i) => ({
+          x: xs[i],
+          y: side === "top" ? midY - heights[i] / 2 : midY + heights[i] / 2,
+        }));
+        let d = "";
+        // começa na borda esquerda (extends para fora)
+        const startX = -colW / 2;
+        const endX = totalW + colW / 2;
+        if (side === "top") {
+          d = `M ${startX} ${pts[0].y} L ${pts[0].x} ${pts[0].y}`;
+          for (let i = 0; i < pts.length - 1; i++) {
+            const p0 = pts[i], p1 = pts[i + 1];
+            const dx = (p1.x - p0.x) * 0.5;
+            d += ` C ${p0.x + dx} ${p0.y}, ${p1.x - dx} ${p1.y}, ${p1.x} ${p1.y}`;
+          }
+          d += ` L ${endX} ${pts[pts.length - 1].y}`;
+        } else {
+          d = `L ${endX} ${pts[pts.length - 1].y}`;
+          for (let i = pts.length - 1; i > 0; i--) {
+            const p0 = pts[i], p1 = pts[i - 1];
+            const dx = (p0.x - p1.x) * 0.5;
+            d += ` C ${p0.x - dx} ${p0.y}, ${p1.x + dx} ${p1.y}, ${p1.x} ${p1.y}`;
+          }
+          d += ` L ${startX} ${pts[0].y} Z`;
+        }
+        return d;
+      }
+      const pathD = buildPath("top") + " " + buildPath("bottom");
+
+      // Path interior (lighter highlight) — versão menor
+      const innerHeights = heights.map((h) => Math.max(h * 0.45, 4));
+      const innerPath = (() => {
+        const ptsTop = stages.map((s, i) => ({
+          x: xs[i], y: midY - innerHeights[i] / 2,
+        }));
+        const ptsBot = stages.map((s, i) => ({
+          x: xs[i], y: midY + innerHeights[i] / 2,
+        }));
+        let d = `M ${-colW / 2} ${ptsTop[0].y} L ${ptsTop[0].x} ${ptsTop[0].y}`;
+        for (let i = 0; i < ptsTop.length - 1; i++) {
+          const p0 = ptsTop[i], p1 = ptsTop[i + 1];
+          const dx = (p1.x - p0.x) * 0.5;
+          d += ` C ${p0.x + dx} ${p0.y}, ${p1.x - dx} ${p1.y}, ${p1.x} ${p1.y}`;
+        }
+        d += ` L ${totalW + colW / 2} ${ptsTop[ptsTop.length - 1].y}`;
+        d += ` L ${totalW + colW / 2} ${ptsBot[ptsBot.length - 1].y}`;
+        for (let i = ptsBot.length - 1; i > 0; i--) {
+          const p0 = ptsBot[i], p1 = ptsBot[i - 1];
+          const dx = (p0.x - p1.x) * 0.5;
+          d += ` C ${p0.x - dx} ${p0.y}, ${p1.x + dx} ${p1.y}, ${p1.x} ${p1.y}`;
+        }
+        d += ` L ${-colW / 2} ${ptsBot[0].y} Z`;
+        return d;
+      })();
+
+      // Render SVG: onda única, cor sólida (primary indigo do tema)
+      const svg = `
+        <svg class="flow-svg" viewBox="0 0 ${totalW} ${svgH}" preserveAspectRatio="none" style="height:${svgH}px; position:absolute; top:140px; left:0; width:100%;">
+          <path d="${pathD}" fill="#6366f1" fill-opacity="0.92" />
+          ${stages.map((_, i) => i > 0 ? `<line x1="${i * colW}" y1="0" x2="${i * colW}" y2="${svgH}" stroke="#e2e8f0" stroke-width="1"/>` : '').join('')}
+        </svg>
+      `;
+
+      const cols = stages.map((s, i) => {
+        const pct = totalAll > 0 ? (s.clientes / totalAll) * 100 : 0;
+        const isZero = s.clientes === 0;
+        const bn = isBottleneck(s);
+        const pctStr = isZero ? "0%" : (pct >= 1 ? pct.toFixed(1).replace('.', ',') + '%' : pct.toFixed(2).replace('.', ',') + '%');
+        const tipCount = `Número de clientes atualmente nesta etapa.\nUm cliente pode estar em mais de uma etapa ao mesmo tempo se tiver tasks ativas em paralelo.`;
+        const tipPct = `Participação desta etapa em relação ao total de ocupações do funil.\n${s.clientes} de ${totalAll} (${pctStr}).`;
+        const tipMoney = `Soma das vendas efetivas (CRM) dos clientes únicos que estão em "${s.name}".\n\nMesmo cliente em 2 tasks da mesma etapa não duplica.\nMas se o cliente estiver em outras etapas, o valor dele aparece também nelas (representa "valor parado nessa etapa").`;
+        const tipTime = `Tempo médio que os clientes atuais estão nesta etapa.`;
+        const tipBottleneck = `Gargalo detectado.\nA distribuição de tempo dos clientes desta etapa está muito alongada (média muito maior que a mediana) ou o tempo absoluto passa de 30 dias.`;
+        const esc = (s) => s.replace(/"/g, '&quot;').replace(/\n/g, '&#10;');
+        return `
+          <div class="flow-col" style="--col-color:${s.color}">
+            <div class="flow-col-top">
+              <div class="flow-icon">${s.order_index}</div>
+              <div class="flow-stage-name">${s.name}</div>
+            </div>
+            <div class="flow-col-mid">
+              <div class="flow-headline">
+                <div class="flow-count-big tip ${isZero ? 'zero' : ''}" data-tip="${esc(tipCount)}">${fmtInt(s.clientes)}</div>
+                <div class="flow-count-label">${s.clientes === 1 ? 'cliente nesta etapa' : 'clientes nesta etapa'}</div>
+                <div class="flow-pct tip ${isZero ? 'zero' : ''}" data-tip="${esc(tipPct)}" style="margin-top:6px">${pctStr} do funil</div>
+              </div>
+            </div>
+            <div class="flow-col-bot">
+              ${s.total_value > 0 ? `
+                <div class="tip" data-tip="${esc(tipMoney)}">
+                  <div class="flow-money">${fmtBRL(s.total_value)}</div>
+                  <div class="flow-money-label">em vendas</div>
+                </div>` : ''}
+              ${s.avg_days != null ? `
+                <div class="flow-time tip" data-tip="${esc(tipTime)}">
+                  <svg class="flow-time-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 2"/></svg>
+                  ${fmtDays(s.avg_days)} na etapa
+                </div>` : ''}
+              ${bn ? `
+                <div class="flow-bottleneck tip" data-tip="${esc(tipBottleneck)}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M12 3l9 16H3l9-16z"/></svg>
+                  Gargalo
+                </div>` : ''}
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      flowEl.style.setProperty('--col-w', colW + 'px');
+      flowEl.innerHTML = svg + cols;
+    }
+
+    let currentScale = "sqrt";
+    document.getElementById("scaleToggle").addEventListener("click", (e) => {
+      if (!e.target.matches(".toggle-chip")) return;
+      document.querySelectorAll("#scaleToggle .toggle-chip").forEach((c) => c.classList.remove("active"));
+      e.target.classList.add("active");
+      currentScale = e.target.dataset.scale;
+      renderFlow(currentScale);
+    });
+
+    // ===== Detailed funnel rows =====
+    const funnelEl = document.getElementById("funnel");
+
+    function renderDetail() {
+      const maxBarClientes = Math.max(...stages.map(s => s.clientes), 1);
+
+    funnelEl.innerHTML = stages.map((s) => {
+      const widthPct = maxBarClientes > 0 ? (s.clientes / maxBarClientes) * 100 : 0;
+      const empty = s.clientes === 0;
+      const bottleneck = isBottleneck(s);
+      const finalBadge = s.is_final ? `<span class="stage-final-badge">Final</span>` : '';
+      const bnFlag = bottleneck
+        ? `<span class="bottleneck-flag">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M12 3l9 16H3l9-16z"/></svg>
+            Gargalo
+          </span>`
+        : '';
+
+      return `
+        <div class="stage-row ${empty ? 'empty' : ''}" style="--stage-color: ${s.color}">
+          <div class="stage-num">${s.order_index}</div>
+          <div class="stage-info">
+            <div class="stage-name-row">
+              <span class="stage-name">${s.name}</span>
+              ${finalBadge}
+              ${bnFlag}
+            </div>
+            <div class="stage-bar-wrap">
+              <div class="stage-bar" style="width: ${Math.max(widthPct, empty ? 0 : 1)}%"></div>
+            </div>
+            <div class="stage-meta">
+              <div class="meta-block">
+                <span class="meta-label">Valor na etapa</span>
+                <span class="meta-value ${!s.total_value ? 'muted' : ''}" title="${s.total_value ? fmtBRLfull(s.total_value) : ''}">${s.total_value ? fmtBRL(s.total_value) : '—'}</span>
+              </div>
+              <div class="meta-block">
+                <span class="meta-label">Média na etapa</span>
+                <span class="meta-value ${s.avg_days == null ? 'muted' : ''}">${fmtDays(s.avg_days)}</span>
+              </div>
+              <div class="meta-block">
+                <span class="meta-label">Mediana</span>
+                <span class="meta-value ${s.median_days == null ? 'muted' : ''}">${fmtDays(s.median_days)}</span>
+              </div>
+              ${s.clientes > 0 && s.min_days != null ? `
+                <div class="meta-block">
+                  <span class="meta-label">Mais recente</span>
+                  <span class="meta-value">${fmtDays(s.min_days)}</span>
+                </div>` : ''}
+              ${s.clientes > 0 && s.max_days != null ? `
+                <div class="meta-block">
+                  <span class="meta-label">Mais antigo</span>
+                  <span class="meta-value">${fmtDays(s.max_days)}</span>
+                </div>` : ''}
+            </div>
+          </div>
+          <div class="stage-numbers">
+            <div class="stage-count">${fmtInt(s.clientes)}</div>
+            <div class="stage-count-label">${s.clientes === 1 ? 'cliente' : 'clientes'}</div>
+          </div>
+        </div>
+      `;
+      }).join("");
+    }
+
+    // ===== Master re-render =====
+    function renderAll() {
+      recomputeData();
+      renderKPIs();
+      renderFlow(currentScale);
+      renderDetail();
+    }
+
+    // ===== Period picker wire-up =====
+    function updatePeriodUI() {
+      document.getElementById("periodLabel").textContent = periodLabelText(state.period);
+      document.getElementById("periodBtn").classList.toggle("active", state.period !== "all");
+      document.querySelectorAll(".period-option").forEach((o) => {
+        o.classList.toggle("selected", o.dataset.period === state.period);
+      });
+    }
+
+    (function initPeriod() {
+      const periodBtn = document.getElementById("periodBtn");
+      const periodMenu = document.getElementById("periodMenu");
+      const periodFromEl = document.getElementById("periodFrom");
+      const periodToEl = document.getElementById("periodTo");
+
+      periodBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        periodMenu.hidden = !periodMenu.hidden;
+      });
+      document.addEventListener("click", (e) => {
+        if (!periodMenu.contains(e.target) && e.target !== periodBtn && !periodBtn.contains(e.target)) {
+          periodMenu.hidden = true;
+        }
+      });
+      document.querySelectorAll(".period-option").forEach((opt) => {
+        opt.addEventListener("click", () => {
+          state.period = opt.dataset.period;
+          updatePeriodUI();
+          periodMenu.hidden = true;
+          renderAll();
+        });
+      });
+      document.getElementById("periodApply").addEventListener("click", () => {
+        if (periodFromEl.value && periodToEl.value) {
+          state.period = "custom";
+          state.periodFrom = periodFromEl.value;
+          state.periodTo = periodToEl.value;
+          updatePeriodUI();
+          periodMenu.hidden = true;
+          renderAll();
+        }
+      });
+      updatePeriodUI();
+    })();
+
+    // Render inicial
+    renderAll();
+  </script>
+</body>
+</html>

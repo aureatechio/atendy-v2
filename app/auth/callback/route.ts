@@ -1,0 +1,44 @@
+import type { EmailOtpType } from "@supabase/supabase-js";
+import { NextResponse, type NextRequest } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+function safeRedirectPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return "/";
+  }
+
+  return value;
+}
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const code = searchParams.get("code");
+  const tokenHash = searchParams.get("token_hash");
+  const type = searchParams.get("type") as EmailOtpType | null;
+  const next = safeRedirectPath(searchParams.get("next"));
+  const redirectTo = request.nextUrl.clone();
+  const supabase = await createClient();
+
+  redirectTo.pathname = next;
+  redirectTo.search = "";
+
+  if (tokenHash && type) {
+    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+
+    if (!error) {
+      return NextResponse.redirect(redirectTo);
+    }
+  }
+
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (!error) {
+      return NextResponse.redirect(redirectTo);
+    }
+  }
+
+  redirectTo.pathname = "/reset-password";
+  redirectTo.search = "?error=invalid_link";
+  return NextResponse.redirect(redirectTo);
+}
