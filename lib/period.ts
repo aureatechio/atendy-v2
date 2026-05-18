@@ -1,8 +1,13 @@
 import { PeriodPreset, DateRange } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
-export function getNowDateParts() {
-  const today = new Date();
+interface DateRangeOptions {
+  monthIndex?: number;
+  now?: Date;
+}
+
+export function getNowDateParts(now = new Date()) {
+  const today = now;
   return {
     year: today.getFullYear(),
     month: today.getMonth(),
@@ -10,13 +15,43 @@ export function getNowDateParts() {
   };
 }
 
-export function toDateRange(period: PeriodPreset, custom: DateRange): [Date | null, Date | null] {
-  const today = new Date();
-  const { year, month } = getNowDateParts();
+function dayRange(date: Date): [Date, Date] {
+  return [
+    new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0),
+    new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999),
+  ];
+}
+
+export function toDateRange(
+  period: PeriodPreset,
+  custom: DateRange,
+  options: DateRangeOptions = {},
+): [Date | null, Date | null] {
+  const today = options.now ?? new Date();
+  const { year, month } = getNowDateParts(today);
+
+  if (period === "today") {
+    return dayRange(today);
+  }
+
+  if (period === "last7" || period === "last30") {
+    const days = period === "last7" ? 7 : 30;
+    const fromDate = new Date(year, month, today.getDate() - days + 1);
+    const [from] = dayRange(fromDate);
+    const [, to] = dayRange(today);
+    return [from, to];
+  }
 
   if (period === "month") {
     const from = new Date(year, month, 1, 0, 0, 0, 0);
     const to = new Date(year, month + 1, 0, 23, 59, 59, 999);
+    return [from, to];
+  }
+
+  if (period === "monthPick") {
+    const pickedMonth = Math.max(0, Math.min(options.monthIndex ?? month, month));
+    const from = new Date(year, pickedMonth, 1, 0, 0, 0, 0);
+    const to = new Date(year, pickedMonth + 1, 0, 23, 59, 59, 999);
     return [from, to];
   }
 
@@ -48,8 +83,12 @@ export function toDateRange(period: PeriodPreset, custom: DateRange): [Date | nu
 
 export function formatPeriodLabel(period: PeriodPreset, custom: DateRange) {
   if (period === "all") return "Todo o período";
+  if (period === "today") return "Hoje";
+  if (period === "last7") return "Últimos 7 dias";
+  if (period === "last30") return "Últimos 30 dias";
   if (period === "month") return "Mês atual";
   if (period === "lastMonth") return "Mês anterior";
+  if (period === "monthPick") return "Mês selecionado";
   if (period === "year") return "Este ano";
 
   if (period === "custom" && custom.from && custom.to) {

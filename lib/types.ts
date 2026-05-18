@@ -1,6 +1,15 @@
 export type SortDirection = "asc" | "desc" | "none";
 
-export type PeriodPreset = "all" | "month" | "lastMonth" | "monthPick" | "year" | "custom";
+export type PeriodPreset =
+  | "all"
+  | "today"
+  | "last7"
+  | "last30"
+  | "month"
+  | "lastMonth"
+  | "monthPick"
+  | "year"
+  | "custom";
 
 export interface DateRange {
   from?: string;
@@ -79,6 +88,16 @@ export interface BusinessHoliday {
 }
 
 export type SlaStatus = "ok" | "warning" | "overdue" | "none";
+
+export interface SlaAlert {
+  id: string;
+  status: "warning" | "overdue";
+  firedAt: string;
+  deadline: string;
+  lastSeenAt: string;
+  cliente: { id: string; nome: string; responsavelId: string | null };
+  stage: { id: string; name: string; slug: string; color: string };
+}
 
 export interface FunilRow {
   c: string;

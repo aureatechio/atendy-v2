@@ -76,23 +76,12 @@ function formatShortDate(value: string | null) {
   return SHORT_DATE.format(parsed);
 }
 
-function formatDays(value: number) {
-  return `${value.toFixed(1).replace(".", ",")}d`;
-}
-
-function formatCompactCurrency(value: number) {
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000) {
-    return `R$ ${(value / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}M`;
+function formatElapsedTime(days: number) {
+  if (days < 1) {
+    const hours = Math.max(1, Math.round(days * 24));
+    return `${hours}h`;
   }
-  if (abs >= 1_000) {
-    return `R$ ${(value / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k`;
-  }
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    maximumFractionDigits: 0,
-  });
+  return `${days.toFixed(1).replace(".", ",")} dias`;
 }
 
 export function FunilStageDrawer({ stage, rows, clients, onClose }: Props) {
@@ -460,10 +449,10 @@ export function FunilStageDrawer({ stage, rows, clients, onClose }: Props) {
             >
               Tempo {sortIndicator("dias")}
             </button>
-            <div className="fv2-drawer-th fv2-drawer-th--resp" role="columnheader">
+            <div className="fv2-drawer-th fv2-drawer-th--sla" role="columnheader">
               SLA
             </div>
-            <div className="fv2-drawer-th fv2-drawer-th--resp" role="columnheader">
+            <div className="fv2-drawer-th fv2-drawer-th--owner" role="columnheader">
               Responsável
             </div>
             <button
@@ -501,12 +490,12 @@ export function FunilStageDrawer({ stage, rows, clients, onClose }: Props) {
                       role="cell"
                       title={currencyFormatter.format(row.valor)}
                     >
-                      {formatCompactCurrency(row.valor)}
+                      {currencyFormatter.format(row.valor)}
                     </div>
                     <div className="fv2-drawer-td fv2-drawer-td--num" role="cell">
-                      {formatDays(row.dias)}
+                      {formatElapsedTime(row.dias)}
                     </div>
-                    <div className="fv2-drawer-td fv2-drawer-td--resp" role="cell">
+                    <div className="fv2-drawer-td fv2-drawer-td--sla" role="cell">
                       {(() => {
                         const label = slaPillLabel(row.slaStatus, row.slaHoursRemaining);
                         if (!label) return <span style={{ color: "var(--muted)" }}>—</span>;
@@ -518,7 +507,7 @@ export function FunilStageDrawer({ stage, rows, clients, onClose }: Props) {
                       })()}
                     </div>
                     <div
-                      className="fv2-drawer-td fv2-drawer-td--resp"
+                      className="fv2-drawer-td fv2-drawer-td--owner"
                       role="cell"
                       title={responsavel}
                     >

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, LogOut, ShieldCheck, UserRound, Workflow } from "lucide-react";
+import { Home, LogOut, ShieldCheck, UserRound, Users, Workflow } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { SlaBell } from "@/components/layout/sla-bell";
 import { useAuth } from "@/hooks/use-auth";
 
 type NavLink = {
-  href: "/" | "/funil" | "/admin/users";
+  href: "/" | "/funil" | "/clientes" | "/admin/users";
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   adminOnly?: boolean;
@@ -17,6 +18,7 @@ type NavLink = {
 const links: NavLink[] = [
   { href: "/", label: "Compras Pagas", icon: Home },
   { href: "/funil", label: "Funil de Produção", icon: Workflow },
+  { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/admin/users", label: "Usuários", icon: ShieldCheck, adminOnly: true },
 ];
 
@@ -34,6 +36,13 @@ function getPageMeta(pathname: string) {
     return {
       title: "Funil de Produção",
       trail: "Funil",
+    };
+  }
+
+  if (pathname?.startsWith("/clientes")) {
+    return {
+      title: "Clientes",
+      trail: "Clientes",
     };
   }
 
@@ -147,6 +156,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
               <h1 className="app-header-title">{title}</h1>
             </div>
             <div className="app-header-actions">
+              <SlaBell />
               <span className="app-role-pill">{profile?.role}</span>
               <Button variant="ghost" size="sm" onClick={handleSignOut}>
                 <LogOut />
@@ -155,7 +165,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <section className={`app-content${pathname?.startsWith("/funil") ? " app-content--wide" : ""}`}>{children}</section>
+          <section className={`app-content${pathname?.startsWith("/funil") || pathname?.startsWith("/clientes") ? " app-content--wide" : ""}`}>{children}</section>
         </main>
       </div>
     </div>

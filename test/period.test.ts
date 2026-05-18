@@ -25,4 +25,32 @@ describe("period utilities", () => {
     if (!from || !to) return;
     expect(from.getTime()).toBeLessThanOrEqual(to.getTime());
   });
+
+  it("retorna intervalo de hoje usando data injetada", () => {
+    const [from, to] = toDateRange("today", { from: "", to: "" }, { now: new Date(2026, 4, 18, 12) });
+    expect(from?.toISOString()).toBe(new Date(2026, 4, 18, 0, 0, 0, 0).toISOString());
+    expect(to?.toISOString()).toBe(new Date(2026, 4, 18, 23, 59, 59, 999).toISOString());
+  });
+
+  it("retorna últimos 7 e 30 dias incluindo hoje", () => {
+    const now = new Date(2026, 4, 18, 12);
+    const [from7, to7] = toDateRange("last7", { from: "", to: "" }, { now });
+    const [from30, to30] = toDateRange("last30", { from: "", to: "" }, { now });
+
+    expect(from7?.toISOString()).toBe(new Date(2026, 4, 12, 0, 0, 0, 0).toISOString());
+    expect(to7?.toISOString()).toBe(new Date(2026, 4, 18, 23, 59, 59, 999).toISOString());
+    expect(from30?.toISOString()).toBe(new Date(2026, 3, 19, 0, 0, 0, 0).toISOString());
+    expect(to30?.toISOString()).toBe(new Date(2026, 4, 18, 23, 59, 59, 999).toISOString());
+  });
+
+  it("retorna mês selecionado do ano atual limitado ao mês atual", () => {
+    const now = new Date(2026, 4, 18, 12);
+    const [from, to] = toDateRange("monthPick", { from: "", to: "" }, { monthIndex: 2, now });
+    const [futureFrom, futureTo] = toDateRange("monthPick", { from: "", to: "" }, { monthIndex: 11, now });
+
+    expect(from?.toISOString()).toBe(new Date(2026, 2, 1, 0, 0, 0, 0).toISOString());
+    expect(to?.toISOString()).toBe(new Date(2026, 2, 31, 23, 59, 59, 999).toISOString());
+    expect(futureFrom?.toISOString()).toBe(new Date(2026, 4, 1, 0, 0, 0, 0).toISOString());
+    expect(futureTo?.toISOString()).toBe(new Date(2026, 4, 31, 23, 59, 59, 999).toISOString());
+  });
 });
