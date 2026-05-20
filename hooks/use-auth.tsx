@@ -22,6 +22,9 @@ type AuthContextValue = {
   isBlocked: boolean;
   isAdmin: boolean;
   isSupervisor: boolean;
+  isCsHead: boolean;
+  isDev: boolean;
+  isCsAccess: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error?: string }>;
@@ -237,6 +240,9 @@ export function AuthProvider({ children, initialAuth }: { children: React.ReactN
     const isBlocked = !!user && profile?.status === "blocked";
     const isAdmin = profile?.role === "admin";
     const isSupervisor = profile?.role === "supervisor" || isAdmin;
+    const isCsHead = profile?.role === "cs_head";
+    const isDev = profile?.role === "dev";
+    const isCsAccess = isAdmin || isCsHead || isDev;
 
     return {
       loading,
@@ -248,6 +254,9 @@ export function AuthProvider({ children, initialAuth }: { children: React.ReactN
       isBlocked,
       isAdmin,
       isSupervisor,
+      isCsHead,
+      isDev,
+      isCsAccess,
       signIn,
       signOut,
       resetPassword,

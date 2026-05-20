@@ -14,6 +14,8 @@ const roleLabels: Record<UserRole, string> = {
   supervisor: "Supervisor",
   producao: "Producao",
   attendant: "Atendente",
+  cs_head: "Head CS/CX",
+  dev: "Desenvolvedor",
 };
 
 const statusLabels: Record<UserStatus, string> = {
@@ -27,6 +29,8 @@ const roleBadgeClasses: Record<UserRole, string> = {
   supervisor: "admin-role-badge admin-role-badge-supervisor",
   producao: "admin-role-badge admin-role-badge-producao",
   attendant: "admin-role-badge admin-role-badge-attendant",
+  cs_head: "admin-role-badge admin-role-badge-cs-head",
+  dev: "admin-role-badge admin-role-badge-dev",
 };
 
 const statusBadgeVariants: Record<UserStatus, "success" | "warning" | "danger"> = {

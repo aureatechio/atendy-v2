@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "supervisor" | "attendant" | "producao";
+export type UserRole = "admin" | "supervisor" | "attendant" | "producao" | "cs_head" | "dev";
 export type UserStatus = "pending" | "active" | "blocked";
 
 export type Profile = {

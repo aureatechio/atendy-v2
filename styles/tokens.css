@@ -33,6 +33,9 @@
   --radius-lg: 14px;
 
   --sidebar-w: 232px;
+  --sidebar-w-collapsed: 64px;
+  --sidebar-cs-w: 220px;
+  --sidebar-cs-w-collapsed: 56px;
   --header-h: 64px;
 
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;

@@ -31,6 +31,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClienteActions, ClienteAddComment } from "@/components/cliente/cliente-actions";
+import { htmlToPlainText } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -108,6 +109,7 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
   const { cliente, stages, stageHistory, comments, tasks, meetings, adjustments, profiles } = data;
 
   const currentStage = stages.find((s) => s.id === cliente.current_stage_id) ?? null;
+  const mainStages = stages.filter((stage) => !stage.parent_stage_id);
   const dias = daysSince(cliente.stage_entered_at ?? cliente.created_at);
   const responsavel = profileName(profiles, cliente.responsavel_atendimento ?? cliente.assigned_to);
   const valor = cliente.valor ?? cliente.deal_value;
@@ -164,7 +166,7 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
           clienteId={cliente.id}
           whatsapp={cliente.whatsapp}
           currentStageId={cliente.current_stage_id}
-          stages={stages}
+          stages={mainStages}
           isArchived={Boolean(cliente.is_archived)}
         />
       </header>
@@ -397,7 +399,7 @@ function CommentsCard({
                   <strong>{profileName(profiles, c.author_id) ?? "—"}</strong>
                   <span>{fmtDateTime(c.created_at)}</span>
                 </header>
-                <p>{c.content}</p>
+                <p>{htmlToPlainText(c.content)}</p>
               </li>
             ))}
           </ul>

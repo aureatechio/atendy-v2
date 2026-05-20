@@ -55,3 +55,26 @@ export function formatDate(value: string): string {
 export function formatMonthLabel(year: number, monthIndex: number) {
   return `${String(monthIndex + 1).padStart(2, "0")}/${year}`;
 }
+
+const HTML_ENTITIES: Record<string, string> = {
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&apos;": "'",
+  "&#39;": "'",
+  "&nbsp;": " ",
+};
+
+export function htmlToPlainText(value: string | null | undefined): string {
+  if (!value) return "";
+  return value
+    .replace(/<\s*br\s*\/?>/gi, "\n")
+    .replace(/<\/\s*(p|div|li|h[1-6]|tr)\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCharCode(Number(code)))
+    .replace(/&[a-z]+;/gi, (entity) => HTML_ENTITIES[entity.toLowerCase()] ?? entity)
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Settings2, ArrowUpDown } from "lucide-react";
+import { Download, Settings2, ArrowUpDown, Filter, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useComprasFilters, periodPresets } from "@/hooks/useComprasFilters";
 import { usePaginatedTable } from "@/hooks/usePaginatedTable";
@@ -39,6 +39,7 @@ const COLUMN_DEFS: Array<{
   { key: "segmento", label: "Segmento", render: (row) => row.segmento },
   { key: "tipoVenda", label: "Tipo", render: (row) => row.tipoVenda },
   { key: "statusPagamento", label: "Pagamento", render: (row) => row.statusPagamento },
+  { key: "clickSignStatus", label: "Contrato", render: (row) => row.clickSignStatus ?? "-" },
   { key: "statusProducao", label: "Produção", render: (row) => row.statusProducao },
   { key: "atendyStageName", label: "Etapa Atendy", render: (row) => row.atendyStageName },
   {
@@ -116,6 +117,7 @@ function renderStatusBadge(value: string | undefined) {
 export function ComprasDashboard({ initialData }: Props) {
   const searchRef = useRef<HTMLInputElement>(null);
   const [openPopover, setOpenPopover] = useState(false);
+  const [openFilters, setOpenFilters] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(baseVisibleState);
 
   const { state, setFilter, options, rows, filteredCount } = useComprasFilters(initialData);
@@ -142,6 +144,25 @@ export function ComprasDashboard({ initialData }: Props) {
   const kpis = useMemo(() => computeComprasKpis(rows), [rows]);
 
   const visibleColumnsKeys = useMemo(() => COLUMN_DEFS.filter((col) => visibleColumns[col.key]), [visibleColumns]);
+
+  const activeFilterCount =
+    (state.tipoVenda !== "all" ? 1 : 0) +
+    (state.statusPagamento !== "all" ? 1 : 0) +
+    (state.vendedor !== "all" ? 1 : 0) +
+    (state.celebridade !== "all" ? 1 : 0) +
+    (state.segmento !== "all" ? 1 : 0) +
+    (state.etapa !== "all" ? 1 : 0) +
+    (state.sync !== "all" ? 1 : 0);
+
+  const clearAdvancedFilters = () => {
+    setFilter("tipoVenda", "all");
+    setFilter("statusPagamento", "all");
+    setFilter("vendedor", "all");
+    setFilter("celebridade", "all");
+    setFilter("segmento", "all");
+    setFilter("etapa", "all");
+    setFilter("sync", "all");
+  };
 
   const handleSort = (key: SortKey) => {
     const next = key !== sortKey ? "asc" : sortDir === "asc" ? "desc" : sortDir === "desc" ? "none" : "asc";
@@ -172,136 +193,147 @@ export function ComprasDashboard({ initialData }: Props) {
         <KpiCard title="Sync Atendy" value={`${kpis.syncCount}`} subtitle="registros sincronizados" />
       </div>
 
-      <Card className="panel-card space-y-3">
-        <CardHeader>
-          <CardTitle>Filtros e busca</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3 lg:grid-cols-4">
-          <div>
-            <label className="label">Busca (Cmd/Ctrl + K)</label>
-            <Input
-              ref={searchRef}
-              placeholder="Digite texto (cliente, email, proposta...)"
-              value={state.search}
-              onChange={(event) => setFilter("search", event.target.value)}
-            />
-          </div>
-          <div>
-            <label className="label">Período</label>
-            <Select
-              value={state.period}
-              onChange={(event) =>
-                setFilter("period", event.target.value as "all" | "month" | "lastMonth" | "year" | "custom")
-              }
-            >
-              {periodPresets.map((preset) => (
-                <option key={preset.value} value={preset.value}>
-                  {preset.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          {state.period === "custom" && (
-            <>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[220px] flex-1">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 ds-text-muted" />
+          <Input
+            ref={searchRef}
+            className="pl-8"
+            placeholder="Buscar cliente, email, proposta… (Cmd/Ctrl + K)"
+            value={state.search}
+            onChange={(event) => setFilter("search", event.target.value)}
+          />
+        </div>
+        <div className="w-[180px]">
+          <Select
+            value={state.period}
+            onChange={(event) =>
+              setFilter("period", event.target.value as "all" | "month" | "lastMonth" | "year" | "custom")
+            }
+          >
+            {periodPresets.map((preset) => (
+              <option key={preset.value} value={preset.value}>
+                {preset.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {state.period === "custom" && (
+          <>
+            <div className="w-[150px]">
+              <Input
+                type="date"
+                value={state.periodFrom}
+                onChange={(event) => setFilter("periodFrom", event.target.value)}
+              />
+            </div>
+            <div className="w-[150px]">
+              <Input
+                type="date"
+                value={state.periodTo}
+                onChange={(event) => setFilter("periodTo", event.target.value)}
+              />
+            </div>
+          </>
+        )}
+        <div className="relative">
+          <Button type="button" variant="secondary" onClick={() => setOpenFilters((value) => !value)}>
+            <Filter className="h-4 w-4" /> Filtros
+            {activeFilterCount > 0 ? (
+              <Badge variant="default" className="ml-1">
+                {activeFilterCount}
+              </Badge>
+            ) : null}
+          </Button>
+          {openFilters ? (
+            <div className="ds-popover-content w-72 space-y-2">
               <div>
-                <label className="label">De</label>
-                <Input type="date" value={state.periodFrom} onChange={(event) => setFilter("periodFrom", event.target.value)} />
-              </div>
-              <div>
-                <label className="label">Até</label>
-                <Input type="date" value={state.periodTo} onChange={(event) => setFilter("periodTo", event.target.value)} />
-              </div>
-            </>
-          )}
-
-          <div>
-            <label className="label">Tipo</label>
-            <Select value={state.tipoVenda} onChange={(event) => setFilter("tipoVenda", event.target.value)}>
-              <option value="all">Todos</option>
-              {options.tipos.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <label className="label">Pagamento</label>
-            <Select value={state.statusPagamento} onChange={(event) => setFilter("statusPagamento", event.target.value)}>
-              <option value="all">Todos</option>
-              {options.statusPagamento.map((item) => <option key={item} value={item}>{item}</option>)}
-            </Select>
-          </div>
-          <div>
-            <label className="label">Vendedor</label>
-            <Select value={state.vendedor} onChange={(event) => setFilter("vendedor", event.target.value)}>
-              <option value="all">Todos</option>
-              {options.vendedores.map((item) => <option key={item} value={item}>{item}</option>)}
-            </Select>
-          </div>
-          <div>
-            <label className="label">Celebridade</label>
-            <Select value={state.celebridade} onChange={(event) => setFilter("celebridade", event.target.value)}>
-              <option value="all">Todas</option>
-              {options.celebridades.map((item) => <option key={item} value={item}>{item}</option>)}
-            </Select>
-          </div>
-          <div>
-            <label className="label">Segmento</label>
-            <Select value={state.segmento} onChange={(event) => setFilter("segmento", event.target.value)}>
-              <option value="all">Todos</option>
-              {options.segmentos.map((item) => <option key={item} value={item}>{item}</option>)}
-            </Select>
-          </div>
-          <div>
-            <label className="label">Etapa Atendy</label>
-            <Select value={state.etapa} onChange={(event) => setFilter("etapa", event.target.value)}>
-              <option value="all">Todas</option>
-              {options.etapas.map((item) => <option key={item} value={item}>{item}</option>)}
-            </Select>
-          </div>
-          <div>
-            <label className="label">Sync</label>
-            <Select value={state.sync} onChange={(event) => setFilter("sync", event.target.value)}>
-              {syncOptions.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div className="md:col-span-3 lg:col-span-4 flex items-end gap-2">
-            <div className="relative">
-              <Button type="button" variant="secondary" onClick={() => setOpenPopover((value) => !value)}>
-                <Settings2 className="h-4 w-4" /> Colunas
-              </Button>
-              {openPopover ? (
-                <div className="ds-popover-content">
-                  {COLUMN_DEFS.map((col) => (
-                    <label key={col.key} className="mb-2 block cursor-pointer text-sm">
-                      <input
-                        type="checkbox"
-                        className="mr-2 ds-check"
-                        checked={visibleColumns[col.key]}
-                        onChange={(event) => setVisibleColumns((prev) => ({ ...prev, [col.key]: event.target.checked }))}
-                      />
-                      {col.label}
-                    </label>
+                <label className="label">Tipo</label>
+                <Select value={state.tipoVenda} onChange={(event) => setFilter("tipoVenda", event.target.value)}>
+                  <option value="all">Todos</option>
+                  {options.tipos.map((item) => (
+                    <option key={item} value={item}>{item}</option>
                   ))}
-                  <Button className="mt-2 w-full" variant="outline" type="button" onClick={() => setVisibleColumns(baseVisibleState)}>
-                    Restaurar
-                  </Button>
-                </div>
+                </Select>
+              </div>
+              <div>
+                <label className="label">Pagamento</label>
+                <Select value={state.statusPagamento} onChange={(event) => setFilter("statusPagamento", event.target.value)}>
+                  <option value="all">Todos</option>
+                  {options.statusPagamento.map((item) => <option key={item} value={item}>{item}</option>)}
+                </Select>
+              </div>
+              <div>
+                <label className="label">Vendedor</label>
+                <Select value={state.vendedor} onChange={(event) => setFilter("vendedor", event.target.value)}>
+                  <option value="all">Todos</option>
+                  {options.vendedores.map((item) => <option key={item} value={item}>{item}</option>)}
+                </Select>
+              </div>
+              <div>
+                <label className="label">Celebridade</label>
+                <Select value={state.celebridade} onChange={(event) => setFilter("celebridade", event.target.value)}>
+                  <option value="all">Todas</option>
+                  {options.celebridades.map((item) => <option key={item} value={item}>{item}</option>)}
+                </Select>
+              </div>
+              <div>
+                <label className="label">Segmento</label>
+                <Select value={state.segmento} onChange={(event) => setFilter("segmento", event.target.value)}>
+                  <option value="all">Todos</option>
+                  {options.segmentos.map((item) => <option key={item} value={item}>{item}</option>)}
+                </Select>
+              </div>
+              <div>
+                <label className="label">Etapa Atendy</label>
+                <Select value={state.etapa} onChange={(event) => setFilter("etapa", event.target.value)}>
+                  <option value="all">Todas</option>
+                  {options.etapas.map((item) => <option key={item} value={item}>{item}</option>)}
+                </Select>
+              </div>
+              <div>
+                <label className="label">Sync</label>
+                <Select value={state.sync} onChange={(event) => setFilter("sync", event.target.value)}>
+                  {syncOptions.map((item) => (
+                    <option key={item.value} value={item.value}>{item.label}</option>
+                  ))}
+                </Select>
+              </div>
+              {activeFilterCount > 0 ? (
+                <Button className="mt-1 w-full" variant="outline" type="button" onClick={clearAdvancedFilters}>
+                  <X className="h-4 w-4" /> Limpar filtros
+                </Button>
               ) : null}
             </div>
-            <Button variant="outline" type="button" onClick={onExport}>
-              <Download className="h-4 w-4" /> Exportar CSV
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          ) : null}
+        </div>
+        <div className="relative">
+          <Button type="button" variant="secondary" onClick={() => setOpenPopover((value) => !value)}>
+            <Settings2 className="h-4 w-4" /> Colunas
+          </Button>
+          {openPopover ? (
+            <div className="ds-popover-content">
+              {COLUMN_DEFS.map((col) => (
+                <label key={col.key} className="mb-2 block cursor-pointer text-sm">
+                  <input
+                    type="checkbox"
+                    className="mr-2 ds-check"
+                    checked={visibleColumns[col.key]}
+                    onChange={(event) => setVisibleColumns((prev) => ({ ...prev, [col.key]: event.target.checked }))}
+                  />
+                  {col.label}
+                </label>
+              ))}
+              <Button className="mt-2 w-full" variant="outline" type="button" onClick={() => setVisibleColumns(baseVisibleState)}>
+                Restaurar
+              </Button>
+            </div>
+          ) : null}
+        </div>
+        <Button variant="outline" type="button" onClick={onExport}>
+          <Download className="h-4 w-4" /> Exportar CSV
+        </Button>
+      </div>
 
       <Card className="panel-card">
         <CardHeader>

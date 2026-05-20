@@ -27,3 +27,23 @@ export function getSupabaseServiceRoleKey() {
 
   return key;
 }
+
+export function getCrmSupabaseUrl() {
+  const url = process.env.CRM_SUPABASE_URL;
+
+  if (!url) {
+    throw new Error("CRM_SUPABASE_URL is not configured.");
+  }
+
+  return url;
+}
+
+export function getCrmServiceRoleKey() {
+  const key = process.env.CRM_SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!key) {
+    throw new Error("CRM_SUPABASE_SERVICE_ROLE_KEY is not configured.");
+  }
+
+  return key;
+}

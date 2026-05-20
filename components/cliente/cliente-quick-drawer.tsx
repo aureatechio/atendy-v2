@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
   AlertTriangle,
+  ArrowUpRight,
   Calendar,
   CheckCircle2,
   ExternalLink,
+  Inbox,
   Loader2,
   Mail,
   MessageCircle,
@@ -16,7 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { currencyFormatter, ptDateFormatter } from "@/lib/utils";
+import { currencyFormatter, htmlToPlainText, ptDateFormatter } from "@/lib/utils";
 import type { ClienteListItem, ClienteQuickDetail } from "@/lib/clientes/types";
 
 interface Props {
@@ -123,14 +124,25 @@ export function ClienteQuickDrawer({ cliente, onClose }: Props) {
               {current.isArchived ? <Badge>Arquivado</Badge> : null}
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fechar">
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="clientes-drawer-head-actions">
+            <a
+              className="ds-btn ds-btn-primary clientes-action-link"
+              href={`/clientes/${current.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Abrir página completa em nova aba"
+            >
+              <ArrowUpRight className="h-4 w-4" /> Ver detalhes
+            </a>
+            <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fechar">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </header>
 
         <div className="clientes-drawer-actions">
           {wa ? (
-            <a className="ds-btn ds-btn-primary clientes-action-link" href={wa} target="_blank" rel="noopener noreferrer">
+            <a className="ds-btn ds-btn-outline clientes-action-link" href={wa} target="_blank" rel="noopener noreferrer">
               <MessageCircle className="h-4 w-4" /> WhatsApp
             </a>
           ) : null}
@@ -139,9 +151,9 @@ export function ClienteQuickDrawer({ cliente, onClose }: Props) {
               <Mail className="h-4 w-4" /> E-mail
             </a>
           ) : null}
-          <Link className="ds-btn ds-btn-secondary clientes-action-link" href={`/clientes/${current.id}`}>
-            <ExternalLink className="h-4 w-4" /> Página completa
-          </Link>
+          {!wa && !current.email ? (
+            <span className="clientes-drawer-actions-empty">Nenhum contato cadastrado.</span>
+          ) : null}
         </div>
 
         <div className="clientes-drawer-kpis">
@@ -186,12 +198,6 @@ export function ClienteQuickDrawer({ cliente, onClose }: Props) {
           </div>
         </section>
 
-        {loading ? (
-          <div className="clientes-drawer-state">
-            <Loader2 className="h-4 w-4 animate-spin" /> Carregando atividades...
-          </div>
-        ) : null}
-
         {error ? (
           <div className="clientes-drawer-error">
             <AlertTriangle className="h-4 w-4" />
@@ -199,61 +205,90 @@ export function ClienteQuickDrawer({ cliente, onClose }: Props) {
           </div>
         ) : null}
 
-        {detail ? (
-          <>
-            <section className="clientes-drawer-section">
-              <h3>Tarefas abertas</h3>
-              <div className="clientes-drawer-list">
-                {detail.tasks.length === 0 ? <p>Nenhuma tarefa aberta.</p> : null}
-                {detail.tasks.map((task) => (
-                  <article key={task.id} className="clientes-drawer-item">
-                    <div>
-                      <strong>{task.title ?? "Tarefa sem título"}</strong>
-                      <span>{task.assignedToName ?? "Sem responsável"} · {fmtDate(task.deadline)}</span>
-                    </div>
-                    {task.isUrgent ? <Badge variant="danger">Urgente</Badge> : null}
-                  </article>
-                ))}
-              </div>
-            </section>
+        <section className="clientes-drawer-section">
+          <h3>Tarefas abertas</h3>
+          {loading && !detail ? (
+            <div className="clientes-drawer-state inline">
+              <Loader2 className="h-4 w-4 animate-spin" /> Carregando tarefas...
+            </div>
+          ) : (
+            <div className="clientes-drawer-list">
+              {detail && detail.tasks.length === 0 ? (
+                <div className="clientes-drawer-empty">
+                  <Inbox className="h-4 w-4" />
+                  <span>Nenhuma tarefa aberta.</span>
+                </div>
+              ) : null}
+              {detail?.tasks.map((task) => (
+                <article key={task.id} className="clientes-drawer-item">
+                  <div>
+                    <strong>{task.title ?? "Tarefa sem título"}</strong>
+                    <span>{task.assignedToName ?? "Sem responsável"} · {fmtDate(task.deadline)}</span>
+                  </div>
+                  {task.isUrgent ? <Badge variant="danger">Urgente</Badge> : null}
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
-            <section className="clientes-drawer-section">
-              <h3>Próximas reuniões</h3>
-              <div className="clientes-drawer-list">
-                {detail.meetings.length === 0 ? <p>Nenhuma reunião encontrada.</p> : null}
-                {detail.meetings.map((meeting) => (
-                  <article key={meeting.id} className="clientes-drawer-item">
-                    <div>
-                      <strong>{meeting.title ?? "Reunião sem título"}</strong>
-                      <span>{fmtDate(meeting.scheduledAt)} · {meeting.organizerName ?? "Sem organizador"}</span>
-                    </div>
-                    {meeting.meetingLink ? (
-                      <a href={meeting.meetingLink} target="_blank" rel="noopener noreferrer" aria-label="Abrir reunião">
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    ) : null}
-                  </article>
-                ))}
-              </div>
-            </section>
+        <section className="clientes-drawer-section">
+          <h3>Próximas reuniões</h3>
+          {loading && !detail ? (
+            <div className="clientes-drawer-state inline">
+              <Loader2 className="h-4 w-4 animate-spin" /> Carregando reuniões...
+            </div>
+          ) : (
+            <div className="clientes-drawer-list">
+              {detail && detail.meetings.length === 0 ? (
+                <div className="clientes-drawer-empty">
+                  <Calendar className="h-4 w-4" />
+                  <span>Nenhuma reunião agendada.</span>
+                </div>
+              ) : null}
+              {detail?.meetings.map((meeting) => (
+                <article key={meeting.id} className="clientes-drawer-item">
+                  <div>
+                    <strong>{meeting.title ?? "Reunião sem título"}</strong>
+                    <span>{fmtDate(meeting.scheduledAt)} · {meeting.organizerName ?? "Sem organizador"}</span>
+                  </div>
+                  {meeting.meetingLink ? (
+                    <a href={meeting.meetingLink} target="_blank" rel="noopener noreferrer" aria-label="Abrir reunião">
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
-            <section className="clientes-drawer-section">
-              <h3>Últimos comentários</h3>
-              <div className="clientes-drawer-list">
-                {detail.comments.length === 0 ? <p>Nenhum comentário recente.</p> : null}
-                {detail.comments.map((comment) => (
-                  <article key={comment.id} className="clientes-drawer-comment">
-                    <header>
-                      <strong>{comment.authorName ?? "Atendy"}</strong>
-                      <span>{fmtDate(comment.createdAt)}</span>
-                    </header>
-                    <p>{comment.content}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
-          </>
-        ) : null}
+        <section className="clientes-drawer-section">
+          <h3>Últimos comentários</h3>
+          {loading && !detail ? (
+            <div className="clientes-drawer-state inline">
+              <Loader2 className="h-4 w-4 animate-spin" /> Carregando comentários...
+            </div>
+          ) : (
+            <div className="clientes-drawer-list">
+              {detail && detail.comments.length === 0 ? (
+                <div className="clientes-drawer-empty">
+                  <MessageCircle className="h-4 w-4" />
+                  <span>Nenhum comentário recente.</span>
+                </div>
+              ) : null}
+              {detail?.comments.map((comment) => (
+                <article key={comment.id} className="clientes-drawer-comment">
+                  <header>
+                    <strong>{comment.authorName ?? "Atendy"}</strong>
+                    <span>{fmtDate(comment.createdAt)}</span>
+                  </header>
+                  <p>{htmlToPlainText(comment.content)}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
 
         {detail && detail.tasks.length > 0 ? (
           <div className="clientes-drawer-foot">

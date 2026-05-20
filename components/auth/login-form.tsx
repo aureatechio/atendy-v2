@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { Route } from "next";
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { logAuthTiming, startAuthTiming } from "@/lib/auth/debug";
@@ -24,6 +25,7 @@ export function LoginForm() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -98,14 +100,25 @@ export function LoginForm() {
       <label className="label" htmlFor="password">
         Senha
       </label>
-      <Input
-        id="password"
-        type="password"
-        autoComplete="current-password"
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-        required
-      />
+      <div className="auth-password-field">
+        <Input
+          id="password"
+          type={showPassword ? "text" : "password"}
+          autoComplete="current-password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          required
+        />
+        <button
+          type="button"
+          className="auth-password-toggle"
+          onClick={() => setShowPassword((value) => !value)}
+          aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+          aria-pressed={showPassword}
+        >
+          {showPassword ? <EyeOff size={16} aria-hidden /> : <Eye size={16} aria-hidden />}
+        </button>
+      </div>
 
       <Button type="submit" size="lg" disabled={isSubmitting}>
         {isSubmitting ? "Entrando..." : "Entrar"}
