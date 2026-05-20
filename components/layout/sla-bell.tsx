@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   AlertTriangle,
   Bell,
+  Check,
   ClipboardList,
   MessageCircleOff,
   TimerReset,
@@ -12,39 +13,37 @@ import {
 import { useAlerts, ALERT_TYPE_LABELS } from "@/hooks/useAlerts";
 import type { Alert, AlertType } from "@/lib/types";
 
+const SECTION_ORDER: AlertType[] = ["stage_sla", "task_overdue", "followup"];
+const ITEMS_PER_SECTION = 4;
+
 function formatRelative(deadline: string, now: number) {
   const target = new Date(deadline).getTime();
   if (Number.isNaN(target)) return "—";
   const diffH = (target - now) / 3_600_000;
   const abs = Math.abs(diffH);
-  const fmt = (h: number) =>
-    h >= 24 ? `${Math.round(h / 24)}d` : `${Math.max(1, Math.round(h))}h`;
+  const fmt = (h: number) => {
+    if (h >= 24) return `${Math.round(h / 24)}d`;
+    if (h >= 1) return `${Math.round(h)}h`;
+    return `${Math.max(1, Math.round(h * 60))}min`;
+  };
   return diffH < 0 ? `atrasado ${fmt(abs)}` : `vence em ${fmt(abs)}`;
 }
 
-function iconForType(type: AlertType, status: "warning" | "overdue") {
-  if (type === "task_overdue") {
-    return <ClipboardList className="h-3 w-3" aria-hidden />;
-  }
-  if (type === "followup") {
-    return <MessageCircleOff className="h-3 w-3" aria-hidden />;
-  }
-  return status === "overdue" ? (
-    <AlertTriangle className="h-3 w-3" aria-hidden />
-  ) : (
-    <TimerReset className="h-3 w-3" aria-hidden />
-  );
+function typeIcon(type: AlertType) {
+  if (type === "task_overdue") return <ClipboardList className="h-3.5 w-3.5" aria-hidden />;
+  if (type === "followup") return <MessageCircleOff className="h-3.5 w-3.5" aria-hidden />;
+  return <TimerReset className="h-3.5 w-3.5" aria-hidden />;
 }
 
-function labelForRow(a: Alert) {
+function rowLabel(a: Alert) {
   if (a.type === "task_overdue") return a.task?.title ?? "Tarefa sem título";
   return a.stage?.name ?? "";
 }
 
-const SECTION_ORDER: AlertType[] = ["stage_sla", "task_overdue", "followup"];
-
 export function SlaBell() {
-  const { alerts } = useAlerts();
+  // Singleton de toasts: APENAS este hook deve disparar notificações para
+  // evitar cascata duplicada (a página /alertas usa enableToasts=false).
+  const { alerts } = useAlerts({ enableToasts: true });
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -82,18 +81,18 @@ export function SlaBell() {
   const now = Date.now();
 
   return (
-    <div className="sla-bell" data-open={open} ref={rootRef}>
+    <div className="alerts-bell" data-open={open} ref={rootRef}>
       <button
         type="button"
-        className="sla-bell-trigger"
-        aria-label={`Notificações de alertas: ${total} ${total === 1 ? "alerta" : "alertas"}`}
+        className="alerts-bell-trigger"
+        aria-label={`Notificações: ${total} ${total === 1 ? "alerta" : "alertas"}`}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
         <Bell className="h-4 w-4" aria-hidden />
         {total > 0 ? (
           <span
-            className={`sla-bell-badge ${overdue > 0 ? "is-danger" : "is-warning"}`}
+            className={`alerts-bell-badge ${overdue > 0 ? "is-danger" : "is-warning"}`}
             aria-hidden
           >
             {total > 99 ? "99+" : total}
@@ -102,64 +101,105 @@ export function SlaBell() {
       </button>
 
       {open ? (
-        <div className="sla-bell-dropdown" role="menu">
-          <header className="sla-bell-head">
-            <h4>Alertas</h4>
-            <p>
-              {overdue} {overdue === 1 ? "atrasado" : "atrasados"} · {warning} em
-              alerta
-            </p>
+        <div className="alerts-bell-panel" role="menu">
+          <header className="alerts-bell-panel-head">
+            <div className="alerts-bell-panel-title">
+              <h4>Alertas</h4>
+              <Link
+                href="/alertas"
+                className="alerts-bell-link-action"
+                onClick={() => setOpen(false)}
+              >
+                Ver todos
+              </Link>
+            </div>
+            <div className="alerts-bell-summary">
+              <span className="alerts-bell-summary-chip is-danger">
+                <AlertTriangle className="h-3 w-3" aria-hidden />
+                {overdue} atrasados
+              </span>
+              <span className="alerts-bell-summary-chip is-warning">
+                <TimerReset className="h-3 w-3" aria-hidden />
+                {warning} em alerta
+              </span>
+            </div>
           </header>
+
           {alerts.length === 0 ? (
-            <p className="sla-bell-empty">Tudo dentro do prazo.</p>
+            <div className="alerts-bell-empty">
+              <Check className="h-5 w-5" aria-hidden />
+              <p>Tudo dentro do prazo.</p>
+            </div>
           ) : (
-            <>
-              {SECTION_ORDER.map((type) => {
-                const list = byType.get(type);
+            <div className="alerts-bell-body">
+              {SECTION_ORDER.map((sectionType) => {
+                const list = byType.get(sectionType);
                 if (!list || list.length === 0) return null;
+                const items = list.slice(0, ITEMS_PER_SECTION);
+                const remaining = list.length - items.length;
                 return (
-                  <div key={type}>
-                    <div className="sla-bell-section-label">
-                      {ALERT_TYPE_LABELS[type]} · {list.length}
-                    </div>
-                    <ul className="sla-bell-list">
-                      {list.slice(0, 6).map((a) => (
-                        <li key={a.id} className="sla-bell-item">
+                  <section
+                    key={sectionType}
+                    className="alerts-bell-section"
+                    data-type={sectionType}
+                  >
+                    <header className="alerts-bell-section-head">
+                      <span className="alerts-bell-section-icon" aria-hidden>
+                        {typeIcon(sectionType)}
+                      </span>
+                      <span className="alerts-bell-section-name">
+                        {ALERT_TYPE_LABELS[sectionType]}
+                      </span>
+                      <span className="alerts-bell-section-count">{list.length}</span>
+                    </header>
+                    <ul className="alerts-bell-list">
+                      {items.map((a) => (
+                        <li key={a.id}>
                           <Link
                             href={`/clientes/${a.cliente.id}`}
-                            className="sla-bell-item-link"
+                            className="alerts-bell-row"
+                            data-status={a.status}
                             onClick={() => setOpen(false)}
                           >
                             <span
-                              className={`sla-bell-pill sla-bell-pill--${a.status}`}
-                              aria-label={
-                                a.status === "overdue" ? "Atrasado" : "Em alerta"
-                              }
-                            >
-                              {iconForType(a.type, a.status)}
-                            </span>
-                            <span className="sla-bell-item-body">
-                              <strong>{a.cliente.nome}</strong>
-                              <span className="sla-bell-item-meta">
-                                {labelForRow(a)} · {formatRelative(a.deadline, now)}
+                              className="alerts-bell-row-dot"
+                              data-status={a.status}
+                              aria-hidden
+                            />
+                            <span className="alerts-bell-row-body">
+                              <span className="alerts-bell-row-title">
+                                {a.cliente.nome}
                               </span>
+                              <span className="alerts-bell-row-meta">
+                                {rowLabel(a)}
+                              </span>
+                            </span>
+                            <span
+                              className="alerts-bell-row-time"
+                              data-status={a.status}
+                            >
+                              {formatRelative(a.deadline, now)}
                             </span>
                           </Link>
                         </li>
                       ))}
+                      {remaining > 0 ? (
+                        <li>
+                          <Link
+                            href={`/alertas?type=${sectionType}`}
+                            className="alerts-bell-row-more"
+                            onClick={() => setOpen(false)}
+                          >
+                            + {remaining} {remaining === 1 ? "outro" : "outros"}
+                          </Link>
+                        </li>
+                      ) : null}
                     </ul>
-                  </div>
+                  </section>
                 );
               })}
-            </>
+            </div>
           )}
-          <Link
-            href="/alertas"
-            className="sla-bell-footer-link"
-            onClick={() => setOpen(false)}
-          >
-            Ver todos os alertas
-          </Link>
         </div>
       ) : null}
     </div>
