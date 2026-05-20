@@ -5,7 +5,7 @@ import { requireAdminAccess } from "@/lib/auth/requireAdmin";
 import { createStageSchema } from "@/lib/sla/validation";
 
 const stageColumns =
-  "id, name, slug, color, order_index, is_final, is_active, parent_stage_id, sla_amount, sla_unit, warn_at_percent, created_at, updated_at";
+  "id, name, slug, color, order_index, is_final, is_active, parent_stage_id, sla_amount, sla_unit, warn_at_percent, followup_days, created_at, updated_at";
 
 export async function GET() {
   const access = await requireAdminAccess({ roles: ["admin", "supervisor"] });

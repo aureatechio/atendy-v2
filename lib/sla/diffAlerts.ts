@@ -1,6 +1,10 @@
+export type AlertType = "stage_sla" | "task_overdue" | "followup";
+
 export interface CurrentAlert {
+  type: AlertType;
   clienteId: string;
-  stageId: string;
+  stageId: string | null;
+  taskId: string | null;
   status: "warning" | "overdue";
   enteredAt: string;
   deadline: string;
@@ -8,14 +12,18 @@ export interface CurrentAlert {
 
 export interface OpenAlert {
   id: string;
+  type: AlertType;
   cliente_id: string;
-  stage_id: string;
+  stage_id: string | null;
+  task_id: string | null;
   status: "warning" | "overdue";
 }
 
 export interface InsertOp {
+  type: AlertType;
   cliente_id: string;
-  stage_id: string;
+  stage_id: string | null;
+  task_id: string | null;
   status: "warning" | "overdue";
   entered_at: string;
   deadline: string;
@@ -33,19 +41,20 @@ export interface DiffResult {
   toTouch: string[];
 }
 
-function keyOf(clienteId: string, stageId: string) {
-  return `${clienteId}:${stageId}`;
+function keyOf(
+  type: AlertType,
+  clienteId: string,
+  stageId: string | null,
+  taskId: string | null,
+) {
+  return `${type}:${clienteId}:${stageId ?? "-"}:${taskId ?? "-"}`;
 }
 
 /**
- * Compares a fresh snapshot of alerts (computed from production_tasks + SLA rules)
- * against the set of currently-open alerts in the database, returning the minimal
- * set of operations needed to reconcile state.
- *
- * - toInsert: brand-new alerts (no open alert exists for this cliente/stage pair).
- * - toUpdate: status changed (e.g., warning -> overdue) on an existing open alert.
- * - toResolve: open alerts no longer present in the snapshot (back to ok or moved stage).
- * - toTouch: open alerts present in snapshot with same status — just bump last_seen_at.
+ * Compares a fresh snapshot of alerts against the set of currently-open
+ * alerts in the database, returning the minimal set of operations needed
+ * to reconcile state. Alerts are keyed by (type, cliente, stage, task) so
+ * different alert sources never collide.
  */
 export function diffAlerts(
   snapshot: CurrentAlert[],
@@ -53,12 +62,12 @@ export function diffAlerts(
 ): DiffResult {
   const snapshotByKey = new Map<string, CurrentAlert>();
   for (const a of snapshot) {
-    snapshotByKey.set(keyOf(a.clienteId, a.stageId), a);
+    snapshotByKey.set(keyOf(a.type, a.clienteId, a.stageId, a.taskId), a);
   }
 
   const openByKey = new Map<string, OpenAlert>();
   for (const a of openAlerts) {
-    openByKey.set(keyOf(a.cliente_id, a.stage_id), a);
+    openByKey.set(keyOf(a.type, a.cliente_id, a.stage_id, a.task_id), a);
   }
 
   const toInsert: InsertOp[] = [];
@@ -70,8 +79,10 @@ export function diffAlerts(
     const open = openByKey.get(key);
     if (!open) {
       toInsert.push({
+        type: current.type,
         cliente_id: current.clienteId,
         stage_id: current.stageId,
+        task_id: current.taskId,
         status: current.status,
         entered_at: current.enteredAt,
         deadline: current.deadline,

@@ -2,6 +2,7 @@ import type { FunilClientDetail, FunilData, FunilRow, FunilStageMeta, SlaUnit } 
 import { createClient } from "@/lib/supabase/server";
 import { evaluateSla } from "@/lib/sla/calculateDeadline";
 import { COMPLETED_TASK_STATUS } from "@/lib/production-tasks/status";
+import { fetchSupabaseAll } from "@/lib/supabase/paginate";
 
 type HolidayRecord = {
   date: string;
@@ -18,6 +19,7 @@ type StageRecord = {
   sla_amount: number | null;
   sla_unit: string | null;
   warn_at_percent: number | null;
+  followup_days: number | null;
 };
 
 type TaskRecord = {
@@ -64,33 +66,6 @@ type SubsegmentoRecord = {
   id: string;
   nome: string | null;
 };
-
-const PAGE_SIZE = 1000;
-
-type SupabasePageResult<T> = {
-  data: T[] | null;
-  error: { message: string } | null;
-};
-
-async function fetchSupabaseAll<T>(
-  fetchPage: (from: number, to: number) => PromiseLike<SupabasePageResult<T>>,
-): Promise<T[]> {
-  const rows: T[] = [];
-
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await fetchPage(from, from + PAGE_SIZE - 1);
-    if (error) {
-      throw new Error(`Supabase request failed: ${error.message}`);
-    }
-
-    const page = data ?? [];
-    rows.push(...page);
-
-    if (page.length < PAGE_SIZE) break;
-  }
-
-  return rows;
-}
 
 function numberValue(value: string | number | null | undefined) {
   const parsed = Number(value ?? 0);
@@ -260,6 +235,7 @@ export function buildFunilData(
     sla_amount: stage.sla_amount,
     sla_unit: (stage.sla_unit as SlaUnit | null) ?? "business_days",
     warn_at_percent: stage.warn_at_percent ?? 80,
+    followup_days: stage.followup_days,
   });
 
   const rootStages = activeStages.filter((stage) => stage.parent_stage_id === null);
@@ -302,7 +278,7 @@ export async function getFunilDados(): Promise<FunilData> {
       (from, to) =>
         supabase
           .from("client_pipeline_stages")
-          .select("id,name,slug,color,order_index,is_final,parent_stage_id,sla_amount,sla_unit,warn_at_percent")
+          .select("id,name,slug,color,order_index,is_final,parent_stage_id,sla_amount,sla_unit,warn_at_percent,followup_days")
           .eq("is_active", true)
           .order("order_index", { ascending: true })
           .range(from, to),

@@ -1,8 +1,5 @@
-import comprasRaw from "@/data/compras.json";
 import funilRaw from "@/data/funil.json";
-import { type Compra, type FunilData, type FunilStageMeta, type SlaUnit } from "@/lib/types";
-
-const comprasData: Compra[] = comprasRaw as Compra[];
+import { type FunilData, type FunilStageMeta, type SlaUnit } from "@/lib/types";
 
 type LegacyStageMeta = {
   slug: string;
@@ -33,6 +30,7 @@ const stagesMeta: FunilStageMeta[] = funilRawData.stages_meta.map((stage) => ({
   sla_amount: stage.sla_amount ?? null,
   sla_unit: stage.sla_unit ?? "business_days",
   warn_at_percent: stage.warn_at_percent ?? 80,
+  followup_days: null,
 }));
 
 const funilData: FunilData = {
@@ -40,10 +38,6 @@ const funilData: FunilData = {
   stages_meta: stagesMeta,
   clients_map: funilRawData.clients_map ?? {},
 };
-
-export async function getCompras(): Promise<Compra[]> {
-  return comprasData;
-}
 
 export async function getFunilDados(): Promise<FunilData> {
   return funilData;

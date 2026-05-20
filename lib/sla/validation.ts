@@ -20,6 +20,7 @@ export const createStageSchema = z.object({
   sla_amount: z.number().int().positive().nullable().default(null),
   sla_unit: z.enum(slaUnitOptions).default("business_days"),
   warn_at_percent: z.number().int().min(1).max(100).default(80),
+  followup_days: z.number().int().positive().nullable().default(null),
 });
 
 export const updateStageSchema = z.object({
@@ -33,6 +34,7 @@ export const updateStageSchema = z.object({
   sla_amount: z.number().int().positive().nullable().optional(),
   sla_unit: z.enum(slaUnitOptions).optional(),
   warn_at_percent: z.number().int().min(1).max(100).optional(),
+  followup_days: z.number().int().positive().nullable().optional(),
 });
 
 export const createHolidaySchema = z.object({

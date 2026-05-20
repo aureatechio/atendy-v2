@@ -20,6 +20,7 @@ interface StageRow {
   sla_amount: number | null;
   sla_unit: SlaUnit;
   warn_at_percent: number;
+  followup_days: number | null;
 }
 
 const slaUnitLabels: Record<SlaUnit, string> = {
@@ -38,6 +39,7 @@ type NewStageState = {
   sla_amount: string;
   sla_unit: SlaUnit;
   warn_at_percent: number;
+  followup_days: string;
 };
 
 const initialNewStage: NewStageState = {
@@ -50,6 +52,7 @@ const initialNewStage: NewStageState = {
   sla_amount: "",
   sla_unit: "business_days",
   warn_at_percent: 80,
+  followup_days: "",
 };
 
 function slugify(value: string) {
@@ -122,6 +125,7 @@ export function PipelineStagesAdmin() {
       sla_amount: newStage.sla_amount ? Number(newStage.sla_amount) : null,
       sla_unit: newStage.sla_unit,
       warn_at_percent: newStage.warn_at_percent,
+      followup_days: newStage.followup_days ? Number(newStage.followup_days) : null,
     };
 
     const response = await fetch("/api/admin/pipeline-stages", {
@@ -288,6 +292,21 @@ export function PipelineStagesAdmin() {
             />
           </div>
 
+          <div>
+            <label className="label" htmlFor="stage-followup">Follow-up (dias)</label>
+            <Input
+              id="stage-followup"
+              type="number"
+              min={1}
+              placeholder="ex.: 14, vazio = desligado"
+              value={newStage.followup_days}
+              disabled={Boolean(newStage.parent_stage_id)}
+              onChange={(event) =>
+                setNewStage((current) => ({ ...current, followup_days: event.target.value }))
+              }
+            />
+          </div>
+
           <Button type="submit" disabled={saving}>
             <Plus />
             {saving ? "Criando..." : "Criar etapa"}
@@ -311,6 +330,7 @@ export function PipelineStagesAdmin() {
                   <th>Ordem</th>
                   <th>SLA</th>
                   <th>Alerta %</th>
+                  <th>Follow-up (dias)</th>
                   <th>Final</th>
                   <th>Ações</th>
                 </tr>
@@ -425,6 +445,25 @@ function StageRowView({ stage, isSubstage, onUpdate, onDeactivate }: StageRowPro
           onBlur={(event) => void onUpdate(stage.id, { warn_at_percent: Number(event.target.value) })}
           style={{ width: 70 }}
         />
+      </td>
+      <td>
+        {isSubstage ? (
+          <span style={{ color: "#94a3b8" }}>—</span>
+        ) : (
+          <input
+            className="admin-inline-input"
+            type="number"
+            min={1}
+            defaultValue={stage.followup_days ?? ""}
+            placeholder="—"
+            onBlur={(event) => {
+              const raw = event.target.value.trim();
+              const value = raw === "" ? null : Number(raw);
+              void onUpdate(stage.id, { followup_days: value });
+            }}
+            style={{ width: 70 }}
+          />
+        )}
       </td>
       <td>
         <input

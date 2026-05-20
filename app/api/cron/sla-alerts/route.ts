@@ -1,35 +1,51 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { evaluateSla } from "@/lib/sla/calculateDeadline";
-import { diffAlerts, type CurrentAlert, type OpenAlert } from "@/lib/sla/diffAlerts";
-import type { SlaUnit } from "@/lib/types";
+import {
+  evaluateStageSla,
+  type StageRow,
+  type TaskRow,
+} from "@/lib/alerts/evaluateStageSla";
+import {
+  evaluateTaskOverdue,
+  type TaskOverdueRow,
+} from "@/lib/alerts/evaluateTaskOverdue";
+import {
+  evaluateFollowup,
+  type FollowupClienteRow,
+  type FollowupStageRow,
+} from "@/lib/alerts/evaluateFollowup";
+import {
+  diffAlerts,
+  type CurrentAlert,
+  type OpenAlert,
+  type AlertType,
+} from "@/lib/sla/diffAlerts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 1000;
 
-interface StageRow {
-  id: string;
-  sla_amount: number | null;
-  sla_unit: string | null;
-  warn_at_percent: number | null;
-  is_final: boolean | null;
-}
-
-interface TaskRow {
-  cliente_id: string | null;
-  pipeline_stage_id: string | null;
-  started_at: string | null;
-  created_at: string | null;
-}
-
 interface HolidayRow {
   date: string;
 }
 
+interface ClienteRow {
+  id: string;
+  current_stage_id: string | null;
+  stage_entered_at: string | null;
+}
+
+interface LastInteractionRow {
+  cliente_id: string;
+  last_interaction_at: string | null;
+}
+
 async function fetchAll<T>(
-  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  fetchPage: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ): Promise<T[]> {
   const rows: T[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
@@ -45,7 +61,10 @@ async function fetchAll<T>(
 export async function GET(req: Request) {
   const expected = process.env.CRON_SECRET;
   if (!expected) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
+    return NextResponse.json(
+      { error: "CRON_SECRET not configured" },
+      { status: 500 },
+    );
   }
   if (req.headers.get("authorization") !== `Bearer ${expected}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -53,30 +72,60 @@ export async function GET(req: Request) {
 
   const supabase = createAdminClient();
 
-  let stages: StageRow[];
-  let tasks: TaskRow[];
+  let stages: (StageRow & FollowupStageRow)[];
+  let stageTasks: TaskRow[];
+  let overdueTasks: TaskOverdueRow[];
+  let clientes: ClienteRow[];
+  let lastInteractions: LastInteractionRow[];
   let holidayRows: HolidayRow[];
+
   try {
-    [stages, tasks, holidayRows] = await Promise.all([
-      fetchAll<StageRow>((from, to) =>
-        supabase
-          .from("client_pipeline_stages")
-          .select("id,sla_amount,sla_unit,warn_at_percent,is_final")
-          .eq("is_active", true)
-          .range(from, to),
-      ),
-      fetchAll<TaskRow>((from, to) =>
-        supabase
-          .from("production_tasks")
-          .select("cliente_id,pipeline_stage_id,started_at,created_at")
-          .not("pipeline_stage_id", "is", null)
-          .neq("status", "finalizado")
-          .range(from, to),
-      ),
-      fetchAll<HolidayRow>((from, to) =>
-        supabase.from("business_holidays").select("date").range(from, to),
-      ),
-    ]);
+    [stages, stageTasks, overdueTasks, clientes, lastInteractions, holidayRows] =
+      await Promise.all([
+        fetchAll<StageRow & FollowupStageRow>((from, to) =>
+          supabase
+            .from("client_pipeline_stages")
+            .select(
+              "id,sla_amount,sla_unit,warn_at_percent,is_final,followup_days",
+            )
+            .eq("is_active", true)
+            .range(from, to),
+        ),
+        fetchAll<TaskRow>((from, to) =>
+          supabase
+            .from("production_tasks")
+            .select("cliente_id,pipeline_stage_id,started_at,created_at")
+            .not("pipeline_stage_id", "is", null)
+            .neq("status", "concluido")
+            .range(from, to),
+        ),
+        fetchAll<TaskOverdueRow>((from, to) =>
+          supabase
+            .from("production_tasks")
+            .select(
+              "id,cliente_id,pipeline_stage_id,status,deadline,started_at,created_at",
+            )
+            .not("deadline", "is", null)
+            .neq("status", "concluido")
+            .range(from, to),
+        ),
+        fetchAll<ClienteRow>((from, to) =>
+          supabase
+            .from("clientes_cadastro")
+            .select("id,current_stage_id,stage_entered_at")
+            .not("current_stage_id", "is", null)
+            .range(from, to),
+        ),
+        fetchAll<LastInteractionRow>((from, to) =>
+          supabase
+            .from("cliente_last_interaction")
+            .select("cliente_id,last_interaction_at")
+            .range(from, to),
+        ),
+        fetchAll<HolidayRow>((from, to) =>
+          supabase.from("business_holidays").select("date").range(from, to),
+        ),
+      ]);
   } catch (err) {
     return NextResponse.json(
       { error: "Failed to load source data", detail: (err as Error).message },
@@ -86,48 +135,33 @@ export async function GET(req: Request) {
 
   const holidaySet = new Set(holidayRows.map((h) => h.date));
   const stageById = new Map(stages.map((s) => [s.id, s]));
+  const lastInteractionByCliente = new Map(
+    lastInteractions.map((r) => [r.cliente_id, r.last_interaction_at]),
+  );
 
-  const snapshotByKey = new Map<string, CurrentAlert>();
-  for (const task of tasks) {
-    if (!task.cliente_id || !task.pipeline_stage_id) continue;
-    const stage = stageById.get(task.pipeline_stage_id);
-    if (!stage || stage.is_final) continue;
-    if (stage.sla_amount == null) continue;
+  const stageSlaAlerts = evaluateStageSla({
+    tasks: stageTasks,
+    stageById,
+    holidays: holidaySet,
+  });
 
-    const enteredAt = task.started_at ?? task.created_at;
-    if (!enteredAt) continue;
+  const taskOverdueAlerts = evaluateTaskOverdue({ tasks: overdueTasks });
 
-    let evaluation;
-    try {
-      evaluation = evaluateSla({
-        enteredAt,
-        slaAmount: stage.sla_amount,
-        slaUnit: (stage.sla_unit as SlaUnit | null) ?? "business_days",
-        warnAtPercent: stage.warn_at_percent ?? 80,
-        holidays: holidaySet,
-      });
-    } catch {
-      continue;
-    }
+  const followupAlerts = evaluateFollowup({
+    clientes,
+    stageById,
+    lastInteractionByCliente,
+  });
 
-    if (evaluation.status !== "warning" && evaluation.status !== "overdue") continue;
-    if (!evaluation.deadline) continue;
-
-    const key = `${task.cliente_id}:${stage.id}`;
-    snapshotByKey.set(key, {
-      clienteId: task.cliente_id,
-      stageId: stage.id,
-      status: evaluation.status,
-      enteredAt: new Date(enteredAt).toISOString(),
-      deadline: evaluation.deadline.toISOString(),
-    });
-  }
-
-  const snapshot = [...snapshotByKey.values()];
+  const snapshot: CurrentAlert[] = [
+    ...stageSlaAlerts,
+    ...taskOverdueAlerts,
+    ...followupAlerts,
+  ];
 
   const { data: openAlertsRaw, error: openErr } = await supabase
     .from("sla_alerts")
-    .select("id,cliente_id,stage_id,status")
+    .select("id,type,cliente_id,stage_id,task_id,status")
     .is("resolved_at", null);
   if (openErr) {
     return NextResponse.json(
@@ -138,8 +172,10 @@ export async function GET(req: Request) {
 
   const openAlerts: OpenAlert[] = (openAlertsRaw ?? []).map((a) => ({
     id: a.id as string,
+    type: (a.type as AlertType) ?? "stage_sla",
     cliente_id: a.cliente_id as string,
-    stage_id: a.stage_id as string,
+    stage_id: (a.stage_id as string | null) ?? null,
+    task_id: (a.task_id as string | null) ?? null,
     status: a.status as "warning" | "overdue",
   }));
 
@@ -203,7 +239,12 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    snapshot: snapshot.length,
+    snapshot: {
+      total: snapshot.length,
+      stage_sla: stageSlaAlerts.length,
+      task_overdue: taskOverdueAlerts.length,
+      followup: followupAlerts.length,
+    },
     inserted: ops.toInsert.length,
     updated: ops.toUpdate.length,
     touched: ops.toTouch.length,

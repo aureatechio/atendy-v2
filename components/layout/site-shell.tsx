@@ -2,33 +2,73 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, LogOut, ShieldCheck, UserRound, Users, Workflow } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import {
+  Bell,
+  ChevronsLeft,
+  ChevronsRight,
+  Home,
+  LogOut,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  UserRound,
+  Users,
+  Workflow,
+} from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { SlaBell } from "@/components/layout/sla-bell";
 import { useAuth } from "@/hooks/use-auth";
 
+type LinkRequirement = "admin" | "csAccess";
+
 type NavLink = {
-  href: "/" | "/funil" | "/clientes" | "/admin/users";
+  href:
+    | "/"
+    | "/funil"
+    | "/clientes"
+    | "/alertas"
+    | "/admin/users"
+    | "/configuracoes"
+    | "/cs";
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  adminOnly?: boolean;
+  requires?: LinkRequirement;
 };
 
 const links: NavLink[] = [
-  { href: "/", label: "Compras Pagas", icon: Home },
+  { href: "/", label: "Dashboard", icon: Home },
   { href: "/funil", label: "Funil de Produção", icon: Workflow },
   { href: "/clientes", label: "Clientes", icon: Users },
-  { href: "/admin/users", label: "Usuários", icon: ShieldCheck, adminOnly: true },
+  { href: "/alertas", label: "Alertas", icon: Bell },
+  { href: "/cs", label: "Gestão CS", icon: Sparkles, requires: "csAccess" },
+  { href: "/admin/users", label: "Usuários", icon: ShieldCheck, requires: "admin" },
+  { href: "/configuracoes", label: "Configurações", icon: Settings, requires: "admin" },
 ];
 
 const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/auth/callback"];
 
+const SIDEBAR_COOKIE = "sidebar:main";
+
 function getPageMeta(pathname: string) {
+  if (pathname.startsWith("/configuracoes")) {
+    return {
+      title: "Configurações",
+      trail: "Configurações",
+    };
+  }
+
   if (pathname.startsWith("/admin")) {
     return {
       title: "Usuários e Acessos",
       trail: "Admin",
+    };
+  }
+
+  if (pathname.startsWith("/cs")) {
+    return {
+      title: "Gestão CS",
+      trail: "CS",
     };
   }
 
@@ -46,19 +86,70 @@ function getPageMeta(pathname: string) {
     };
   }
 
+  if (pathname?.startsWith("/alertas")) {
+    return {
+      title: "Alertas",
+      trail: "Alertas",
+    };
+  }
+
+  if (pathname === "/cs/compras-pagas") {
+    return {
+      title: "Compras Pagas",
+      trail: "CS / Compras Pagas",
+    };
+  }
+
+  if (pathname?.startsWith("/cs")) {
+    return {
+      title: "Gestão CS",
+      trail: "CS",
+    };
+  }
+
   return {
-    title: "Compras Pagas",
-    trail: "Compras",
+    title: "Dashboard",
+    trail: "Visão geral",
   };
 }
 
-export function SiteShell({ children }: { children: ReactNode }) {
+function persistSidebarState(value: boolean) {
+  if (typeof document === "undefined") return;
+  const oneYear = 60 * 60 * 24 * 365;
+  document.cookie = `${SIDEBAR_COOKIE}=${value ? "collapsed" : "expanded"}; path=/; max-age=${oneYear}; samesite=lax`;
+}
+
+export function SiteShell({
+  children,
+  initialSidebarCollapsed = false,
+  newAssignmentsCount = 0,
+}: {
+  children: ReactNode;
+  initialSidebarCollapsed?: boolean;
+  newAssignmentsCount?: number;
+}) {
   const pathname = usePathname();
   const router = useRouter();
-  const { loading, profile, user, isAuthenticated, isPending, isBlocked, isSupervisor, signOut } = useAuth();
+  const { loading, profile, user, isAuthenticated, isPending, isBlocked, isSupervisor, isCsAccess, signOut } =
+    useAuth();
   const { title, trail } = getPageMeta(pathname || "/");
   const isPublicRoute = publicRoutes.some((route) => pathname === route || pathname?.startsWith(`${route}/`));
-  const visibleLinks = links.filter((link) => !link.adminOnly || isSupervisor);
+  const [collapsed, setCollapsed] = useState(initialSidebarCollapsed);
+
+  function toggleSidebar() {
+    setCollapsed((current) => {
+      const next = !current;
+      persistSidebarState(next);
+      return next;
+    });
+  }
+
+  const visibleLinks = links.filter((link) => {
+    if (!link.requires) return true;
+    if (link.requires === "admin") return isSupervisor;
+    if (link.requires === "csAccess") return isCsAccess;
+    return false;
+  });
 
   useEffect(() => {
     if (isPublicRoute || loading || isAuthenticated) {
@@ -103,24 +194,47 @@ export function SiteShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="page-shell">
-      <div className="app-shell">
-        <aside className="app-sidebar">
+      <div className="app-shell" data-sidebar-collapsed={collapsed ? "true" : "false"}>
+        <aside className="app-sidebar" data-collapsed={collapsed ? "true" : "false"}>
           <div className="app-sidebar-brand">
             <div className="app-sidebar-brand-icon">A</div>
-            <div>
+            <div className="app-sidebar-brand-text">
               <div className="app-sidebar-brand-title">Atendy Relatórios</div>
               <div className="app-sidebar-brand-subtitle">Dashboard</div>
             </div>
+            <button
+              type="button"
+              className="app-sidebar-toggle"
+              onClick={toggleSidebar}
+              aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+              title={collapsed ? "Expandir menu" : "Recolher menu"}
+            >
+              {collapsed ? <ChevronsRight /> : <ChevronsLeft />}
+            </button>
           </div>
 
           <nav className="app-sidebar-nav" aria-label="Navegação principal">
             {visibleLinks.map(({ href, label, icon: Icon }) => {
               const isActive = pathname === href || (href !== "/" && pathname?.startsWith(href));
+              const showAssignmentsBadge = href === "/clientes" && newAssignmentsCount > 0;
               return (
-                <Link key={href} href={href} className={`app-sidebar-link ${isActive ? "is-active" : ""}`}>
+                <Link
+                  key={href}
+                  href={href}
+                  className={`app-sidebar-link ${isActive ? "is-active" : ""}`}
+                  title={collapsed ? label : undefined}
+                >
                   <Icon />
                   <span>{label}</span>
                   {label.includes("Funil") ? <span className="app-sidebar-link-badge">Novo</span> : null}
+                  {showAssignmentsBadge ? (
+                    <span
+                      className="app-sidebar-link-count"
+                      title={`${newAssignmentsCount} novo(s) cliente(s) hoje`}
+                    >
+                      {newAssignmentsCount}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}
@@ -136,7 +250,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
                   .join("")
                   .toUpperCase()}
               </div>
-              <div className="min-w-0">
+              <div className="app-sidebar-user-info min-w-0">
                 <p className="app-sidebar-user-name">{profile?.full_name ?? "Usuario Atendy"}</p>
                 <p className="app-sidebar-user-email">{user?.email}</p>
               </div>
@@ -165,7 +279,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <section className={`app-content${pathname?.startsWith("/funil") || pathname?.startsWith("/clientes") ? " app-content--wide" : ""}`}>{children}</section>
+          <section className={`app-content${pathname?.startsWith("/funil") || pathname?.startsWith("/clientes") || pathname?.startsWith("/configuracoes") || pathname?.startsWith("/cs") || pathname?.startsWith("/alertas") ? " app-content--wide" : ""}`}>{children}</section>
         </main>
       </div>
     </div>

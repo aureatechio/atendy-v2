@@ -16,6 +16,7 @@ const baseData: FunilData = {
       sla_amount: 1,
       sla_unit: "business_days",
       warn_at_percent: 80,
+      followup_days: null,
     },
     {
       id: "stage-finalizado",
@@ -28,6 +29,7 @@ const baseData: FunilData = {
       sla_amount: null,
       sla_unit: "business_days",
       warn_at_percent: 80,
+      followup_days: null,
     },
   ],
   valor_map: {
@@ -83,6 +85,7 @@ describe("computeFunilKpis", () => {
         sla_amount: 1,
         sla_unit: "business_days",
         warn_at_percent: 80,
+        followup_days: null,
       },
     ];
     const tasks = [
@@ -148,6 +151,7 @@ describe("computeFunilKpis", () => {
         sla_amount: 1,
         sla_unit: "business_days",
         warn_at_percent: 80,
+        followup_days: null,
       },
     ];
     const tasks = [

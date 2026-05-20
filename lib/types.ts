@@ -78,6 +78,7 @@ export interface FunilStageMeta {
   sla_amount: number | null;
   sla_unit: SlaUnit;
   warn_at_percent: number;
+  followup_days: number | null;
   substages?: FunilStageMeta[];
 }
 
@@ -89,15 +90,23 @@ export interface BusinessHoliday {
 
 export type SlaStatus = "ok" | "warning" | "overdue" | "none";
 
-export interface SlaAlert {
+export type AlertType = "stage_sla" | "task_overdue" | "followup";
+
+export interface Alert {
   id: string;
+  type: AlertType;
   status: "warning" | "overdue";
   firedAt: string;
   deadline: string;
   lastSeenAt: string;
+  snoozedUntil: string | null;
   cliente: { id: string; nome: string; responsavelId: string | null };
-  stage: { id: string; name: string; slug: string; color: string };
+  stage: { id: string; name: string; slug: string; color: string } | null;
+  task: { id: string; title: string | null } | null;
 }
+
+/** @deprecated use `Alert` */
+export type SlaAlert = Alert;
 
 export interface FunilRow {
   c: string;
@@ -141,6 +150,7 @@ export type CompraColumnKey =
   | "segmento"
   | "tipoVenda"
   | "statusPagamento"
+  | "clickSignStatus"
   | "statusProducao"
   | "atendyStageName"
   | "atendyStageOrder"
