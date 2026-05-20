@@ -1,19 +1,26 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import type { Route } from "next";
 import { toast } from "sonner";
 import {
   AlertTriangle,
   BellOff,
   Check,
+  CheckCircle2,
   ClipboardList,
+  ExternalLink,
+  Filter,
+  Loader2,
   MessageCircleOff,
+  RefreshCw,
+  Search,
   TimerReset,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
   Table,
@@ -32,7 +39,6 @@ function formatDateTime(iso: string) {
   return d.toLocaleString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
-    year: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -43,15 +49,18 @@ function formatRelative(deadline: string, now: number) {
   if (Number.isNaN(target)) return "—";
   const diffH = (target - now) / 3_600_000;
   const abs = Math.abs(diffH);
-  const fmt = (h: number) =>
-    h >= 24 ? `${Math.round(h / 24)}d` : `${Math.max(1, Math.round(h))}h`;
+  const fmt = (h: number) => {
+    if (h >= 24) return `${Math.round(h / 24)}d`;
+    if (h >= 1) return `${Math.round(h)}h`;
+    return `${Math.max(1, Math.round(h * 60))}min`;
+  };
   return diffH < 0 ? `atrasado ${fmt(abs)}` : `vence em ${fmt(abs)}`;
 }
 
 function typeIcon(type: AlertType) {
-  if (type === "task_overdue") return <ClipboardList className="h-3 w-3" />;
-  if (type === "followup") return <MessageCircleOff className="h-3 w-3" />;
-  return <TimerReset className="h-3 w-3" />;
+  if (type === "task_overdue") return <ClipboardList className="h-3.5 w-3.5" aria-hidden />;
+  if (type === "followup") return <MessageCircleOff className="h-3.5 w-3.5" aria-hidden />;
+  return <TimerReset className="h-3.5 w-3.5" aria-hidden />;
 }
 
 const TYPE_OPTIONS: { value: "all" | AlertType; label: string }[] = [
@@ -61,20 +70,82 @@ const TYPE_OPTIONS: { value: "all" | AlertType; label: string }[] = [
   { value: "followup", label: "Follow-up" },
 ];
 
-const STATUS_OPTIONS = [
-  { value: "all", label: "Todos" },
+const STATUS_OPTIONS: {
+  value: "all" | "overdue" | "warning";
+  label: string;
+}[] = [
+  { value: "all", label: "Todos status" },
   { value: "overdue", label: "Atrasados" },
   { value: "warning", label: "Em alerta" },
 ];
 
+type RowAction = "snooze" | "resolve";
+type RowState = { action: RowAction; phase: "pending" | "done" } | null;
+
+interface IconActionButtonProps {
+  label: string;
+  icon: React.ReactNode;
+  intent: "snooze" | "resolve" | "open";
+  href?: string;
+  onClick?: () => void;
+  state?: RowState;
+}
+
+function IconActionButton({
+  label,
+  icon,
+  intent,
+  href,
+  onClick,
+  state,
+}: IconActionButtonProps) {
+  const isPending = state?.phase === "pending";
+  const isDone = state?.phase === "done";
+  const content = isPending ? (
+    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+  ) : isDone ? (
+    <Check className="h-3.5 w-3.5" />
+  ) : (
+    icon
+  );
+  const className = `alerts-action-btn alerts-action-btn--${intent}`;
+  if (href) {
+    return (
+      <Link
+        href={href as Route}
+        className={className}
+        title={label}
+        aria-label={label}
+      >
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      disabled={isPending || isDone}
+      data-state={state?.phase}
+    >
+      {content}
+    </button>
+  );
+}
+
 export function AlertsView() {
   const { allAlerts, loading, refetch } = useAlerts();
+  const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | AlertType>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "overdue" | "warning">(
     "all",
   );
   const [responsavelFilter, setResponsavelFilter] = useState<string>("all");
-  const [pending, startTransition] = useTransition();
+  const [refreshing, setRefreshing] = useState(false);
+  const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
 
   const responsaveis = useMemo(() => {
     const set = new Set<string>();
@@ -85,6 +156,7 @@ export function AlertsView() {
   }, [allAlerts]);
 
   const filtered = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
     return allAlerts.filter((a) => {
       if (typeFilter !== "all" && a.type !== typeFilter) return false;
       if (statusFilter !== "all" && a.status !== statusFilter) return false;
@@ -93,199 +165,364 @@ export function AlertsView() {
         a.cliente.responsavelId !== responsavelFilter
       )
         return false;
+      if (normalizedSearch) {
+        const hay = [
+          a.cliente.nome,
+          a.stage?.name ?? "",
+          a.task?.title ?? "",
+        ]
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(normalizedSearch)) return false;
+      }
       return true;
     });
-  }, [allAlerts, typeFilter, statusFilter, responsavelFilter]);
+  }, [allAlerts, typeFilter, statusFilter, responsavelFilter, search]);
 
   const counts = useMemo(() => {
-    const c = { stage_sla: 0, task_overdue: 0, followup: 0 };
-    for (const a of allAlerts) c[a.type]++;
+    const c = {
+      stage_sla: 0,
+      task_overdue: 0,
+      followup: 0,
+      overdue: 0,
+      warning: 0,
+    };
+    for (const a of allAlerts) {
+      c[a.type]++;
+      if (a.status === "overdue") c.overdue++;
+      else c.warning++;
+    }
     return c;
   }, [allAlerts]);
 
+  function setRowState(id: string, next: RowState) {
+    setRowStates((prev) => ({ ...prev, [id]: next }));
+  }
+
   async function handleSnooze(alert: Alert) {
+    setRowState(alert.id, { action: "snooze", phase: "pending" });
     const res = await fetch(`/api/alerts/${alert.id}/snooze`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ hours: 24 }),
     });
     if (!res.ok) {
+      setRowState(alert.id, null);
       toast.error("Falha ao adiar alerta");
       return;
     }
+    setRowState(alert.id, { action: "snooze", phase: "done" });
     toast.success("Alerta adiado por 24h");
-    startTransition(() => {
+    setTimeout(() => {
       void refetch();
-    });
+    }, 350);
   }
 
   async function handleResolve(alert: Alert) {
+    setRowState(alert.id, { action: "resolve", phase: "pending" });
     const res = await fetch(`/api/alerts/${alert.id}/resolve`, {
       method: "POST",
     });
     if (!res.ok) {
+      setRowState(alert.id, null);
       toast.error("Falha ao resolver alerta");
       return;
     }
-    toast.success("Alerta marcado como resolvido");
-    startTransition(() => {
+    setRowState(alert.id, { action: "resolve", phase: "done" });
+    toast.success("Alerta resolvido");
+    setTimeout(() => {
       void refetch();
-    });
+    }, 350);
+  }
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await refetch();
+    setTimeout(() => setRefreshing(false), 250);
   }
 
   const now = Date.now();
+  const hasActiveFilters =
+    typeFilter !== "all" ||
+    statusFilter !== "all" ||
+    responsavelFilter !== "all" ||
+    search.trim() !== "";
+
+  function clearFilters() {
+    setTypeFilter("all");
+    setStatusFilter("all");
+    setResponsavelFilter("all");
+    setSearch("");
+  }
 
   return (
     <div className="alerts-view">
-      <div className="alerts-cards">
+      <section className="alerts-cards" aria-label="Resumo de alertas">
         <Card>
           <CardContent>
-            <div className="alerts-card-label">SLA da etapa</div>
-            <div className="alerts-card-value">{counts.stage_sla}</div>
+            <div className="alerts-card-row">
+              <div>
+                <div className="alerts-card-label">SLA da etapa</div>
+                <div className="alerts-card-value">{counts.stage_sla}</div>
+              </div>
+              <div className="alerts-card-icon alerts-card-icon--sla">
+                <TimerReset className="h-4 w-4" aria-hidden />
+              </div>
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent>
-            <div className="alerts-card-label">Tarefas atrasadas</div>
-            <div className="alerts-card-value">{counts.task_overdue}</div>
+            <div className="alerts-card-row">
+              <div>
+                <div className="alerts-card-label">Tarefas atrasadas</div>
+                <div className="alerts-card-value">{counts.task_overdue}</div>
+              </div>
+              <div className="alerts-card-icon alerts-card-icon--task">
+                <ClipboardList className="h-4 w-4" aria-hidden />
+              </div>
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent>
-            <div className="alerts-card-label">Follow-up</div>
-            <div className="alerts-card-value">{counts.followup}</div>
+            <div className="alerts-card-row">
+              <div>
+                <div className="alerts-card-label">Follow-up</div>
+                <div className="alerts-card-value">{counts.followup}</div>
+              </div>
+              <div className="alerts-card-icon alerts-card-icon--followup">
+                <MessageCircleOff className="h-4 w-4" aria-hidden />
+              </div>
+            </div>
           </CardContent>
         </Card>
-      </div>
+      </section>
 
-      <div className="alerts-filters">
-        <Select
-          value={typeFilter}
-          onChange={(e) =>
-            setTypeFilter(e.target.value as "all" | AlertType)
-          }
-          aria-label="Tipo"
-        >
-          {TYPE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </Select>
-        <Select
-          value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter(
-              e.target.value as "all" | "overdue" | "warning",
-            )
-          }
-          aria-label="Status"
-        >
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </Select>
-        <Select
-          value={responsavelFilter}
-          onChange={(e) => setResponsavelFilter(e.target.value)}
-          aria-label="Responsável"
-        >
-          <option value="all">Todos responsáveis</option>
-          {responsaveis.map((r) => (
-            <option key={r} value={r}>
-              {r.slice(0, 8)}…
-            </option>
-          ))}
-        </Select>
-      </div>
+      <Card className="alerts-toolbar-card">
+        <CardContent>
+          <div className="alerts-toolbar">
+            <div className="alerts-toolbar-search">
+              <Search className="h-4 w-4" aria-hidden />
+              <Input
+                placeholder="Buscar por cliente, etapa ou tarefa…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label="Buscar alertas"
+              />
+            </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Cliente</TableHead>
-            <TableHead>Etapa / Tarefa</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Disparado</TableHead>
-            <TableHead>Vence em</TableHead>
-            <TableHead style={{ textAlign: "right" }}>Ações</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading && filtered.length === 0 ? (
+            <Select
+              className="alerts-toolbar-select"
+              value={typeFilter}
+              onChange={(e) =>
+                setTypeFilter(e.target.value as "all" | AlertType)
+              }
+              aria-label="Filtrar por tipo"
+            >
+              {TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+
+            <Select
+              className="alerts-toolbar-select"
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(
+                  e.target.value as "all" | "overdue" | "warning",
+                )
+              }
+              aria-label="Filtrar por status"
+            >
+              {STATUS_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+
+            <Select
+              className="alerts-toolbar-select"
+              value={responsavelFilter}
+              onChange={(e) => setResponsavelFilter(e.target.value)}
+              aria-label="Filtrar por responsável"
+            >
+              <option value="all">Todos responsáveis</option>
+              {responsaveis.map((r) => (
+                <option key={r} value={r}>
+                  {r.slice(0, 8)}…
+                </option>
+              ))}
+            </Select>
+
+            <div className="alerts-toolbar-actions">
+              {hasActiveFilters ? (
+                <button
+                  type="button"
+                  className="alerts-toolbar-clear"
+                  onClick={clearFilters}
+                >
+                  Limpar
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="alerts-toolbar-refresh"
+                onClick={() => void handleRefresh()}
+                disabled={refreshing}
+                aria-label="Atualizar"
+                title="Atualizar"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+                  aria-hidden
+                />
+              </button>
+            </div>
+          </div>
+
+          {hasActiveFilters ? (
+            <div className="alerts-toolbar-meta">
+              <Filter className="h-3 w-3" aria-hidden />
+              <span>
+                {filtered.length} de {allAlerts.length} alertas
+              </span>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <div className="alerts-table-wrap">
+        <Table>
+          <TableHeader>
             <TableRow>
-              <TableCell className="alerts-table-empty">Carregando…</TableCell>
+              <TableHead className="alerts-col-status">Status</TableHead>
+              <TableHead className="alerts-col-cliente">Cliente</TableHead>
+              <TableHead className="alerts-col-type">Tipo</TableHead>
+              <TableHead className="alerts-col-context">Etapa / Tarefa</TableHead>
+              <TableHead className="alerts-col-time">Vence em</TableHead>
+              <TableHead className="alerts-col-fired">Disparado</TableHead>
+              <TableHead className="alerts-col-actions">Ações</TableHead>
             </TableRow>
-          ) : filtered.length === 0 ? (
-            <TableRow>
-              <TableCell className="alerts-table-empty">
-                Nenhum alerta com os filtros atuais.
-              </TableCell>
-            </TableRow>
-          ) : (
-            filtered.map((a) => (
-              <TableRow key={a.id}>
-                <TableCell>
-                  <span className="alerts-type-chip">
-                    {typeIcon(a.type)}
-                    <span>{ALERT_TYPE_LABELS[a.type]}</span>
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <Link
-                    href={`/clientes/${a.cliente.id}`}
-                    className="alerts-link"
-                  >
-                    {a.cliente.nome}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  {a.type === "task_overdue"
-                    ? (a.task?.title ?? "Tarefa sem título")
-                    : (a.stage?.name ?? "—")}
-                </TableCell>
-                <TableCell>
-                  {a.status === "overdue" ? (
-                    <Badge variant="danger">
-                      <AlertTriangle className="h-3 w-3" /> Atrasado
-                    </Badge>
-                  ) : (
-                    <Badge variant="warning">
-                      <TimerReset className="h-3 w-3" /> Em alerta
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell>{formatDateTime(a.firedAt)}</TableCell>
-                <TableCell>{formatRelative(a.deadline, now)}</TableCell>
-                <TableCell style={{ textAlign: "right" }}>
-                  <div className="alerts-actions">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={pending}
-                      onClick={() => void handleSnooze(a)}
-                      title="Adiar 24h"
-                    >
-                      <BellOff className="h-3 w-3" /> Adiar
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={pending}
-                      onClick={() => void handleResolve(a)}
-                      title="Marcar como resolvido"
-                    >
-                      <Check className="h-3 w-3" /> Resolver
-                    </Button>
-                  </div>
+          </TableHeader>
+          <TableBody>
+            {loading && filtered.length === 0 ? (
+              <TableRow>
+                <TableCell className="alerts-table-state">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  <span>Carregando alertas…</span>
                 </TableCell>
               </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+            ) : filtered.length === 0 ? (
+              <TableRow>
+                <TableCell className="alerts-table-state">
+                  <CheckCircle2
+                    className="h-5 w-5"
+                    style={{ color: "var(--success, #22c55e)" }}
+                    aria-hidden
+                  />
+                  <span>
+                    {hasActiveFilters
+                      ? "Nenhum alerta com os filtros atuais."
+                      : "Tudo dentro do prazo."}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ) : (
+              filtered.map((a) => {
+                const state = rowStates[a.id] ?? null;
+                return (
+                  <TableRow
+                    key={a.id}
+                    className="alerts-row"
+                    data-status={a.status}
+                    data-state={state?.phase}
+                  >
+                    <TableCell className="alerts-col-status">
+                      {a.status === "overdue" ? (
+                        <Badge variant="danger">
+                          <AlertTriangle className="h-3 w-3" aria-hidden />
+                          Atrasado
+                        </Badge>
+                      ) : (
+                        <Badge variant="warning">
+                          <TimerReset className="h-3 w-3" aria-hidden />
+                          Em alerta
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="alerts-col-cliente">
+                      <Link
+                        href={`/clientes/${a.cliente.id}`}
+                        className="alerts-cliente-link"
+                      >
+                        {a.cliente.nome}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="alerts-col-type">
+                      <span className="alerts-type-chip" data-type={a.type}>
+                        {typeIcon(a.type)}
+                        <span>{ALERT_TYPE_LABELS[a.type]}</span>
+                      </span>
+                    </TableCell>
+                    <TableCell className="alerts-col-context">
+                      <span className="alerts-context-text">
+                        {a.type === "task_overdue"
+                          ? (a.task?.title ?? "Tarefa sem título")
+                          : (a.stage?.name ?? "—")}
+                      </span>
+                    </TableCell>
+                    <TableCell className="alerts-col-time">
+                      <span
+                        className="alerts-time-text"
+                        data-status={a.status}
+                      >
+                        {formatRelative(a.deadline, now)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="alerts-col-fired">
+                      <span className="alerts-fired-text">
+                        {formatDateTime(a.firedAt)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="alerts-col-actions">
+                      <div className="alerts-actions">
+                        <IconActionButton
+                          label="Abrir cliente"
+                          icon={<ExternalLink className="h-3.5 w-3.5" />}
+                          intent="open"
+                          href={`/clientes/${a.cliente.id}`}
+                        />
+                        <IconActionButton
+                          label="Adiar 24h"
+                          icon={<BellOff className="h-3.5 w-3.5" />}
+                          intent="snooze"
+                          onClick={() => void handleSnooze(a)}
+                          state={
+                            state?.action === "snooze" ? state : null
+                          }
+                        />
+                        <IconActionButton
+                          label="Marcar como resolvido"
+                          icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                          intent="resolve"
+                          onClick={() => void handleResolve(a)}
+                          state={
+                            state?.action === "resolve" ? state : null
+                          }
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
