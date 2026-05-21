@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildLoginRedirect, canAccessAdmin, getProtectedAuthRedirect } from "@/lib/auth/guards";
+import { buildLoginRedirect, canAccessAdmin, canAccessCS, getProtectedAuthRedirect } from "@/lib/auth/guards";
+import { roleHasCapability } from "@/lib/auth/capabilities";
 import type { AuthSnapshot } from "@/lib/auth/session";
 import type { Profile } from "@/lib/auth/types";
 
@@ -9,10 +10,6 @@ const profile: Profile = {
   avatar_url: null,
   role: "producao",
   status: "active",
-  specialty: null,
-  permissions: null,
-  is_team_admin: false,
-  autorizado_tirar_analise_ia: false,
   created_at: "2026-01-01T00:00:00.000Z",
   updated_at: "2026-01-01T00:00:00.000Z",
 };
@@ -66,5 +63,51 @@ describe("auth guards", () => {
     expect(canAccessAdmin(activeSupervisor)).toBe(true);
     expect(canAccessAdmin(activeProducao)).toBe(false);
     expect(canAccessAdmin({ status: "anonymous", user: null, profile: null })).toBe(false);
+  });
+
+  it("allows only admin, dev and cs_head into CS routes", () => {
+    const make = (role: Profile["role"], id = "user-x"): AuthSnapshot => ({
+      status: "active",
+      user: { id, email: `${role}@test.local` },
+      profile: { ...profile, id, role },
+    });
+
+    expect(canAccessCS(make("admin"))).toBe(true);
+    expect(canAccessCS(make("dev"))).toBe(true);
+    expect(canAccessCS(make("cs_head"))).toBe(true);
+    expect(canAccessCS(make("supervisor"))).toBe(false);
+    expect(canAccessCS(make("attendant"))).toBe(false);
+    expect(canAccessCS(make("producao"))).toBe(false);
+    expect(canAccessCS({ status: "anonymous", user: null, profile: null })).toBe(false);
+  });
+});
+
+describe("capabilities", () => {
+  it("admin has every capability", () => {
+    expect(roleHasCapability("admin", "adminOnly")).toBe(true);
+    expect(roleHasCapability("admin", "adminArea")).toBe(true);
+    expect(roleHasCapability("admin", "csArea")).toBe(true);
+  });
+
+  it("supervisor has adminArea but not adminOnly nor csArea", () => {
+    expect(roleHasCapability("supervisor", "adminArea")).toBe(true);
+    expect(roleHasCapability("supervisor", "adminOnly")).toBe(false);
+    expect(roleHasCapability("supervisor", "csArea")).toBe(false);
+  });
+
+  it("cs_head and dev belong to csArea only", () => {
+    for (const role of ["cs_head", "dev"] as const) {
+      expect(roleHasCapability(role, "csArea")).toBe(true);
+      expect(roleHasCapability(role, "adminArea")).toBe(false);
+      expect(roleHasCapability(role, "adminOnly")).toBe(false);
+    }
+  });
+
+  it("attendant, producao and designer have no capabilities", () => {
+    for (const role of ["attendant", "producao", "designer"] as const) {
+      expect(roleHasCapability(role, "adminOnly")).toBe(false);
+      expect(roleHasCapability(role, "adminArea")).toBe(false);
+      expect(roleHasCapability(role, "csArea")).toBe(false);
+    }
   });
 });

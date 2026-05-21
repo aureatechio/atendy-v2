@@ -2,7 +2,7 @@ import type { User } from "@supabase/supabase-js";
 import type { Profile } from "@/lib/auth/types";
 
 export const profileSelectColumns =
-  "id, full_name, avatar_url, role, status, specialty, permissions, is_team_admin, autorizado_tirar_analise_ia, created_at, updated_at";
+  "id, full_name, avatar_url, role, status, created_at, updated_at";
 
 export type AuthUserSummary = {
   id: string;

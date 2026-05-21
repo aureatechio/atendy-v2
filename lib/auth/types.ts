@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "supervisor" | "attendant" | "producao" | "cs_head" | "dev";
+export type UserRole = "admin" | "supervisor" | "attendant" | "producao" | "cs_head" | "dev" | "designer";
 export type UserStatus = "pending" | "active" | "blocked";
 
 export type Profile = {
@@ -7,10 +7,6 @@ export type Profile = {
   avatar_url: string | null;
   role: UserRole;
   status: UserStatus;
-  specialty: string | null;
-  permissions: Record<string, boolean> | null;
-  is_team_admin: boolean | null;
-  autorizado_tirar_analise_ia: boolean;
   created_at: string;
   updated_at: string;
 };

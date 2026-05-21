@@ -1,5 +1,5 @@
 /* ========================================================================
-   Roles novos (Head CS/CX, Desenvolvedor)
+   Roles novos (Head CS/CX, Desenvolvedor, Designer)
    ======================================================================== */
 
 .admin-role-badge-cs-head {
@@ -10,6 +10,11 @@
 .admin-role-badge-dev {
   background: rgba(245, 158, 11, 0.14);
   color: #b45309;
+}
+
+.admin-role-badge-designer {
+  background: rgba(139, 92, 246, 0.14);
+  color: #6d28d9;
 }
 
 /* ========================================================================
@@ -403,30 +408,471 @@
   font-weight: 700;
 }
 
-.forca-tarefa-filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  align-items: end;
-}
-
-.forca-tarefa-filters label {
+.forca-tarefa-controls {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 600;
+  gap: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.forca-tarefa-controls-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.forca-tarefa-controls-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.forca-tarefa-controls-head p {
+  margin: 4px 0 0;
+  font-size: 13px;
   color: var(--text-muted);
 }
 
-.forca-tarefa-filters select,
-.forca-tarefa-filters input {
-  padding: 8px 10px;
+.forca-tarefa-loading {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary-hover);
+  background: var(--primary-soft);
+  padding: 4px 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.forca-tarefa-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--primary);
+  border-top-color: transparent;
+  animation: forca-tarefa-spin 0.7s linear infinite;
+}
+
+@keyframes forca-tarefa-spin {
+  to { transform: rotate(360deg); }
+}
+
+.forca-tarefa-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.forca-tarefa-filters[disabled] {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.forca-tarefa-filters[disabled] .forca-tarefa-select {
+  cursor: not-allowed;
+  background: var(--surface-2);
+}
+
+.forca-tarefa-filters > label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 0;
+}
+
+.forca-tarefa-label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: var(--text-subtle);
+}
+
+.forca-tarefa-select {
+  width: 100%;
+  height: 40px;
+  padding: 0 36px 0 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  font-size: 13px;
+  border-radius: var(--radius);
+  background-color: var(--surface);
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--text);
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color var(--motion-short), box-shadow var(--motion-short), background-color var(--motion-short);
+}
+
+.forca-tarefa-select:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.forca-tarefa-select:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--focus-ring);
+}
+
+@media (max-width: 640px) {
+  .forca-tarefa-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+.forca-tarefa-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 960px) {
+  .forca-tarefa-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .forca-tarefa-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+.forca-tarefa-kpi {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  transition: transform var(--motion-short), box-shadow var(--motion-short);
+}
+
+.forca-tarefa-kpi::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--primary);
+}
+
+.forca-tarefa-kpi:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.forca-tarefa-kpi-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+  flex-shrink: 0;
+}
+
+.forca-tarefa-kpi-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.forca-tarefa-kpi-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.forca-tarefa-kpi-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: help;
+}
+
+.forca-tarefa-kpi-tip:hover,
+.forca-tarefa-kpi-tip:focus {
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+  outline: none;
+}
+
+.forca-tarefa-kpi-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.forca-tarefa-kpi-primary::before { background: var(--primary); }
+.forca-tarefa-kpi-primary .forca-tarefa-kpi-icon { background: var(--primary-soft); color: var(--primary-hover); }
+
+.forca-tarefa-kpi-info::before { background: var(--info); }
+.forca-tarefa-kpi-info .forca-tarefa-kpi-icon { background: var(--info-soft); color: var(--info); }
+
+.forca-tarefa-kpi-success::before { background: var(--success); }
+.forca-tarefa-kpi-success .forca-tarefa-kpi-icon { background: var(--success-soft); color: var(--success); }
+
+.forca-tarefa-kpi-warning::before { background: var(--warning); }
+.forca-tarefa-kpi-warning .forca-tarefa-kpi-icon { background: var(--warning-soft); color: var(--warning); }
+
+.forca-tarefa-kpi-purple::before { background: var(--purple); }
+.forca-tarefa-kpi-purple .forca-tarefa-kpi-icon { background: var(--purple-soft); color: var(--purple); }
+
+.forca-tarefa-kpi-danger::before { background: var(--danger); }
+.forca-tarefa-kpi-danger .forca-tarefa-kpi-icon { background: var(--danger-soft); color: var(--danger); }
+
+.forca-tarefa-empty-hint {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  background: var(--surface);
+}
+
+/* Role picker (step 2) */
+.forca-tarefa-role-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.forca-tarefa-role-picker-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.forca-tarefa-role-picker-label > span:first-child {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.forca-tarefa-role-picker-hint {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.forca-tarefa-role-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.forca-tarefa-role-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: border-color var(--motion-short), background-color var(--motion-short),
+    box-shadow var(--motion-short), transform var(--motion-short);
+}
+
+.forca-tarefa-role-option:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.forca-tarefa-role-option:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--focus-ring);
+}
+
+.forca-tarefa-role-option.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: 0 0 0 1px var(--primary) inset;
+}
+
+.forca-tarefa-role-option-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: background-color var(--motion-short), color var(--motion-short);
+}
+
+.forca-tarefa-role-option.is-active .forca-tarefa-role-option-icon {
+  background: var(--primary);
+  color: #fff;
+}
+
+.forca-tarefa-role-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.forca-tarefa-role-option-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.forca-tarefa-role-option-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.forca-tarefa-role-option-badge {
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+.forca-tarefa-role-option.is-active .forca-tarefa-role-option-badge {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* Skeleton (loading) */
+.forca-tarefa-kpi.is-skeleton {
+  pointer-events: none;
+}
+
+.forca-tarefa-kpi.is-skeleton:hover {
+  transform: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.forca-tarefa-kpi.is-skeleton .forca-tarefa-kpi-icon {
+  background: var(--surface-2);
+  color: transparent;
+}
+
+.forca-tarefa-skel {
+  display: inline-block;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    var(--border) 50%,
+    var(--surface-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: forca-tarefa-shimmer 1.4s ease-in-out infinite;
+}
+
+.forca-tarefa-skel-icon {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+}
+
+.forca-tarefa-skel-label {
+  width: 90px;
+  height: 10px;
+}
+
+.forca-tarefa-skel-value {
+  width: 70%;
+  height: 22px;
+  border-radius: 6px;
+}
+
+@keyframes forca-tarefa-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.forca-tarefa-controls.is-loading .forca-tarefa-kpi:not(.is-skeleton) .forca-tarefa-kpi-value {
+  opacity: 0.4;
+  transition: opacity var(--motion-standard);
+}
+
+.forca-tarefa-controls.is-loading .forca-tarefa-kpi:not(.is-skeleton)::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 3px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 100%
+  );
+  animation: forca-tarefa-shimmer-overlay 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes forca-tarefa-shimmer-overlay {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 .forca-tarefa-candidates {

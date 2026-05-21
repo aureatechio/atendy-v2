@@ -7,7 +7,7 @@ import { createHolidaySchema } from "@/lib/sla/validation";
 const holidayColumns = "date, description, scope, created_at";
 
 export async function GET() {
-  const access = await requireAdminAccess({ roles: ["admin", "supervisor"] });
+  const access = await requireAdminAccess({ capability: "adminArea" });
   if (access.error) return access.error;
 
   const supabase = await createClient();

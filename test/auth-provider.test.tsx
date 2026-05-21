@@ -19,10 +19,6 @@ const profile: Profile = {
   avatar_url: null,
   role: "producao",
   status: "active",
-  specialty: null,
-  permissions: null,
-  is_team_admin: false,
-  autorizado_tirar_analise_ia: false,
   created_at: "2026-01-01T00:00:00.000Z",
   updated_at: "2026-01-01T00:00:00.000Z",
 };

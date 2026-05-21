@@ -1,3 +1,4 @@
+import { roleHasCapability } from "@/lib/auth/capabilities";
 import type { AuthSnapshot } from "@/lib/auth/session";
 
 export function buildLoginRedirect(pathname = "/") {
@@ -18,9 +19,9 @@ export function getProtectedAuthRedirect(snapshot: AuthSnapshot, pathname = "/")
 }
 
 export function canAccessAdmin(snapshot: AuthSnapshot) {
-  return snapshot.status === "active" && ["admin", "supervisor"].includes(snapshot.profile.role);
+  return snapshot.status === "active" && roleHasCapability(snapshot.profile.role, "adminArea");
 }
 
 export function canAccessCS(snapshot: AuthSnapshot) {
-  return snapshot.status === "active" && ["admin", "dev", "cs_head"].includes(snapshot.profile.role);
+  return snapshot.status === "active" && roleHasCapability(snapshot.profile.role, "csArea");
 }

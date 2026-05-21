@@ -1,32 +1,12 @@
 import { NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdminAccess } from "@/lib/auth/requireAdmin";
+import { profileSelectColumns } from "@/lib/auth/session";
 import { createAdminUserSchema, updateAdminUserSchema } from "@/lib/auth/validation";
 import type { AdminUser, Profile } from "@/lib/auth/types";
 
-const profileColumns =
-  "id, full_name, avatar_url, role, status, specialty, permissions, is_team_admin, autorizado_tirar_analise_ia, created_at, updated_at";
-
-async function requireAdminAccess() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error || !user) {
-    return { error: NextResponse.json({ error: "Nao autenticado." }, { status: 401 }) };
-  }
-
-  const { data: profile } = await supabase.from("profiles").select("id, role, status").eq("id", user.id).maybeSingle();
-
-  if (!profile || profile.status !== "active" || !["admin", "supervisor"].includes(profile.role)) {
-    return { error: NextResponse.json({ error: "Acesso negado." }, { status: 403 }) };
-  }
-
-  return { user };
-}
+const profileColumns = profileSelectColumns;
 
 function mergeUsers(profiles: Profile[], authUsers: User[]) {
   const authById = new Map(authUsers.map((user) => [user.id, user]));
@@ -44,7 +24,7 @@ function mergeUsers(profiles: Profile[], authUsers: User[]) {
 }
 
 export async function GET() {
-  const access = await requireAdminAccess();
+  const access = await requireAdminAccess({ capability: "adminArea" });
 
   if (access.error) {
     return access.error;
@@ -64,7 +44,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const access = await requireAdminAccess();
+  const access = await requireAdminAccess({ capability: "adminArea" });
 
   if (access.error) {
     return access.error;
@@ -120,7 +100,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const access = await requireAdminAccess();
+  const access = await requireAdminAccess({ capability: "adminArea" });
 
   if (access.error) {
     return access.error;

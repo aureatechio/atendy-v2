@@ -12,9 +12,12 @@ type StageOption = {
   order_index: number;
 };
 
+type AttendantRole = "attendant" | "producao" | "cs_head";
+
 type AttendantOption = {
   id: string;
   full_name: string;
+  role: AttendantRole;
 };
 
 export default async function ForcaTarefaPage() {
@@ -28,14 +31,15 @@ export default async function ForcaTarefaPage() {
   const [stagesRes, attendantsRes] = await Promise.all([
     supabase
       .from("client_pipeline_stages")
-      .select("id, name, slug, color, order_index, is_final, is_active")
+      .select("id, name, slug, color, order_index, is_final, is_active, parent_stage_id")
       .eq("is_active", true)
       .eq("is_final", false)
+      .is("parent_stage_id", null)
       .order("order_index", { ascending: true }),
     supabase
       .from("profiles")
       .select("id, full_name, role, status")
-      .eq("role", "attendant")
+      .in("role", ["attendant", "producao", "cs_head"])
       .eq("status", "active")
       .order("full_name", { ascending: true }),
   ]);
@@ -51,6 +55,7 @@ export default async function ForcaTarefaPage() {
   const attendants: AttendantOption[] = (attendantsRes.data ?? []).map((p) => ({
     id: p.id as string,
     full_name: (p.full_name as string) ?? "Sem nome",
+    role: p.role as AttendantRole,
   }));
 
   return (

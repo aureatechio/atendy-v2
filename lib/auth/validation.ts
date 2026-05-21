@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const roleOptions = ["admin", "supervisor", "producao", "attendant", "cs_head", "dev"] as const;
+export const roleOptions = ["admin", "supervisor", "producao", "attendant", "cs_head", "dev", "designer"] as const;
 export const statusOptions = ["pending", "active", "blocked"] as const;
 
 export const loginSchema = z.object({

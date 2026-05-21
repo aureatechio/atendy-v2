@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { roleHasCapability, type Capability } from "@/lib/auth/capabilities";
 
 type AdminAccessOptions = {
-  roles?: ("admin" | "supervisor")[];
+  capability?: Capability;
 };
 
 type AdminAccessFailure = { error: NextResponse; user?: never };
@@ -10,7 +11,7 @@ type AdminAccessSuccess = { user: { id: string; email?: string | null }; error?:
 
 export async function requireAdminAccess(options: AdminAccessOptions = {}): Promise<AdminAccessFailure | AdminAccessSuccess> {
   const supabase = await createClient();
-  const allowedRoles = options.roles ?? ["admin"];
+  const capability = options.capability ?? "adminOnly";
   const {
     data: { user },
     error,
@@ -26,7 +27,7 @@ export async function requireAdminAccess(options: AdminAccessOptions = {}): Prom
     .eq("id", user.id)
     .maybeSingle();
 
-  if (!profile || profile.status !== "active" || !allowedRoles.includes(profile.role)) {
+  if (!profile || profile.status !== "active" || !roleHasCapability(profile.role, capability)) {
     return { error: NextResponse.json({ error: "Acesso negado." }, { status: 403 }) };
   }
 
