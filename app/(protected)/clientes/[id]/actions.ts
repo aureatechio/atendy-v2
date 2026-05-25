@@ -65,6 +65,9 @@ export async function changeStage(clienteId: string, newStageId: string): Promis
     reason: null,
   });
 
+  revalidatePath("/clientes");
+  revalidatePath("/funil");
+  revalidatePath("/funil/v1");
   revalidatePath(`/clientes/${clienteId}`);
   return { ok: true };
 }

@@ -2,11 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   ArrowUpDown,
   CalendarClock,
   ChevronDown,
+  Columns3,
   ExternalLink,
+  List,
   MessageCircle,
   Search,
   Settings2,
@@ -17,12 +21,14 @@ import {
   X,
 } from "lucide-react";
 import { ClienteQuickDrawer } from "@/components/cliente/cliente-quick-drawer";
+import { ClientesKanbanView } from "@/components/cliente/clientes-kanban-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { changeStage } from "@/app/(protected)/clientes/[id]/actions";
 import { useClientesFilters, clientesPeriodFieldOptions, clientesPeriodPresets } from "@/hooks/useClientesFilters";
 import { usePaginatedTable } from "@/hooks/usePaginatedTable";
 import { buildWhatsappHref, formatNullableDate, parseClienteDate } from "@/lib/clientes/format";
@@ -50,6 +56,14 @@ const MONTH_LABELS = [
 ];
 
 const STORAGE_KEY = "atendy:clientes:columns";
+const VIEW_STORAGE_KEY = "atendy:clientes:view";
+
+type ClientesViewMode = "list" | "kanban";
+
+type StageOverride = {
+  stageId: string;
+  stageEnteredAt: string;
+};
 
 function fmtDays(value: number | null) {
   if (value === null) return "—";
@@ -191,15 +205,48 @@ function renderCell(column: ClientesColumnKey, row: ClienteListItem, openDrawer:
   );
 }
 
+function getStoredViewMode(): ClientesViewMode {
+  if (typeof window === "undefined") return "list";
+  try {
+    return window.localStorage.getItem(VIEW_STORAGE_KEY) === "kanban" ? "kanban" : "list";
+  } catch {
+    return "list";
+  }
+}
+
 export function ClientesDashboard({ initialData }: Props) {
+  const router = useRouter();
   const searchRef = useRef<HTMLInputElement>(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<ClienteListItem | null>(null);
+  const [viewMode, setViewMode] = useState<ClientesViewMode>(() => getStoredViewMode());
+  const [movingIds, setMovingIds] = useState<Set<string>>(() => new Set());
+  const [stageOverrides, setStageOverrides] = useState<Record<string, StageOverride>>({});
   const [visibleColumns, setVisibleColumns] = useState(defaultVisibleColumns);
 
+  const optimisticData = useMemo<ClientesData>(() => {
+    const stageById = new Map(initialData.stages.map((stage) => [stage.id, stage]));
+    const items = initialData.items.map((item) => {
+      const override = stageOverrides[item.id];
+      if (!override) return item;
+      const stage = stageById.get(override.stageId);
+      return {
+        ...item,
+        stageId: override.stageId,
+        stageName: stage?.name ?? item.stageName,
+        stageColor: stage?.color ?? item.stageColor,
+        stageOrder: stage?.order_index ?? item.stageOrder,
+        stageEnteredAt: override.stageEnteredAt,
+        diasNaEtapa: 0,
+        lastActivityAt: override.stageEnteredAt,
+      };
+    });
+    return { ...initialData, items };
+  }, [initialData, stageOverrides]);
+
   const { state, setFilter, options, rows, kpis, activeFilterChips, clearFilter, clearAllFilters } =
-    useClientesFilters(initialData);
+    useClientesFilters(optimisticData);
   const { pagedItems, page, pageSize, pageCount, startIndex, endIndex, pageSizeOptions, setPage, setPageSize } =
     usePaginatedTable(rows, [25, 50, 100]);
 
@@ -215,6 +262,10 @@ export function ClientesDashboard({ initialData }: Props) {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleColumns));
   }, [visibleColumns]);
+
+  useEffect(() => {
+    window.localStorage.setItem(VIEW_STORAGE_KEY, viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     setPage(1);
@@ -250,6 +301,49 @@ export function ClientesDashboard({ initialData }: Props) {
       return sortKey ? <ArrowUpDown className="h-3.5 w-3.5 ds-text-muted" /> : null;
     }
     return <span aria-hidden>{state.sortDir === "asc" ? "▲" : "▼"}</span>;
+  };
+
+  const moveCliente = async (clienteId: string, stageId: string) => {
+    const current = optimisticData.items.find((item) => item.id === clienteId);
+    if (!current || current.stageId === stageId) return;
+    if (current.isArchived) {
+      toast.error("Clientes arquivados não podem ser movidos no Kanban.");
+      return;
+    }
+
+    const previous = stageOverrides[clienteId];
+    const enteredAt = new Date().toISOString();
+    setMovingIds((ids) => new Set(ids).add(clienteId));
+    setStageOverrides((overrides) => ({ ...overrides, [clienteId]: { stageId, stageEnteredAt: enteredAt } }));
+
+    const rollback = () => {
+      setStageOverrides((overrides) => {
+        const next = { ...overrides };
+        if (previous) next[clienteId] = previous;
+        else delete next[clienteId];
+        return next;
+      });
+    };
+
+    try {
+      const result = await changeStage(clienteId, stageId);
+      if (!result.ok) {
+        rollback();
+        toast.error(result.error ?? "Falha ao mover cliente.");
+        return;
+      }
+      toast.success("Cliente movido de etapa.");
+      router.refresh();
+    } catch {
+      rollback();
+      toast.error("Falha ao mover cliente.");
+    } finally {
+      setMovingIds((ids) => {
+        const next = new Set(ids);
+        next.delete(clienteId);
+        return next;
+      });
+    }
   };
 
   return (
@@ -348,6 +442,27 @@ export function ClientesDashboard({ initialData }: Props) {
               </option>
             ))}
           </Select>
+
+          <div className="clientes-view-toggle" role="group" aria-label="Alternar visualização de clientes">
+            <button
+              type="button"
+              className={viewMode === "list" ? "is-active" : ""}
+              aria-pressed={viewMode === "list"}
+              onClick={() => setViewMode("list")}
+            >
+              <List className="h-3.5 w-3.5" aria-hidden />
+              Lista
+            </button>
+            <button
+              type="button"
+              className={viewMode === "kanban" ? "is-active" : ""}
+              aria-pressed={viewMode === "kanban"}
+              onClick={() => setViewMode("kanban")}
+            >
+              <Columns3 className="h-3.5 w-3.5" aria-hidden />
+              Kanban
+            </button>
+          </div>
 
           <div className="clientes-toolbar-actions">
             <Button
@@ -476,66 +591,80 @@ export function ClientesDashboard({ initialData }: Props) {
         ) : null}
       </div>
 
-      <Card className="panel-card clientes-table-card">
-        <CardHeader>
-          <CardTitle>Clientes</CardTitle>
-          <p className="text-xs ds-text-muted">
-            {rows.length} resultado{rows.length === 1 ? "" : "s"} · exibindo {startIndex}-{endIndex}
-          </p>
-        </CardHeader>
-        <CardContent className="p-0">
-          {rows.length === 0 ? (
-            <div className="clientes-empty">Nenhum cliente encontrado com os filtros atuais.</div>
-          ) : (
-            <Table className="clientes-table-wrap">
-              <TableHeader>
-                <TableRow>
-                  {visibleColumnKeys.map((column) => (
-                    <TableHead key={column} onClick={() => handleSort(column)} className={column === "valor" || column === "actions" ? "text-right" : ""}>
-                      <span className="clientes-th-content">
-                        {columnLabels[column]}
-                        {sortIcon(column)}
-                      </span>
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pagedItems.map((row) => (
-                  <TableRow key={row.id} className="clientes-table-row" onClick={() => setSelectedCliente(row)}>
-                    {visibleColumnKeys.map((column) => (
-                      <TableCell key={column} className={column === "valor" || column === "actions" ? "text-right" : ""}>
-                        {renderCell(column, row, setSelectedCliente)}
-                      </TableCell>
+      {viewMode === "list" ? (
+        <>
+          <Card className="panel-card clientes-table-card">
+            <CardHeader>
+              <CardTitle>Clientes</CardTitle>
+              <p className="text-xs ds-text-muted">
+                {rows.length} resultado{rows.length === 1 ? "" : "s"} · exibindo {startIndex}-{endIndex}
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              {rows.length === 0 ? (
+                <div className="clientes-empty">Nenhum cliente encontrado com os filtros atuais.</div>
+              ) : (
+                <Table className="clientes-table-wrap">
+                  <TableHeader>
+                    <TableRow>
+                      {visibleColumnKeys.map((column) => (
+                        <TableHead key={column} onClick={() => handleSort(column)} className={column === "valor" || column === "actions" ? "text-right" : ""}>
+                          <span className="clientes-th-content">
+                            {columnLabels[column]}
+                            {sortIcon(column)}
+                          </span>
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pagedItems.map((row) => (
+                      <TableRow key={row.id} className="clientes-table-row" onClick={() => setSelectedCliente(row)}>
+                        {visibleColumnKeys.map((column) => (
+                          <TableCell key={column} className={column === "valor" || column === "actions" ? "text-right" : ""}>
+                            {renderCell(column, row, setSelectedCliente)}
+                          </TableCell>
+                        ))}
+                      </TableRow>
                     ))}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
 
-      <div className="clientes-pagination">
-        <span>
-          Página {page} de {pageCount} · {rows.length} itens
-        </span>
-        <div>
-          <Button size="sm" type="button" variant="outline" onClick={() => setPage(page - 1)} disabled={page <= 1}>
-            Anterior
-          </Button>
-          <Button size="sm" type="button" variant="outline" onClick={() => setPage(page + 1)} disabled={page >= pageCount}>
-            Próxima
-          </Button>
-          <Select value={String(pageSize)} onChange={(event) => setPageSize(Number(event.target.value))} className="w-32">
-            {pageSizeOptions.map((size) => (
-              <option key={size} value={size}>
-                {size} / página
-              </option>
-            ))}
-          </Select>
-        </div>
-      </div>
+          <div className="clientes-pagination">
+            <span>
+              Página {page} de {pageCount} · {rows.length} itens
+            </span>
+            <div>
+              <Button size="sm" type="button" variant="outline" onClick={() => setPage(page - 1)} disabled={page <= 1}>
+                Anterior
+              </Button>
+              <Button size="sm" type="button" variant="outline" onClick={() => setPage(page + 1)} disabled={page >= pageCount}>
+                Próxima
+              </Button>
+              <Select value={String(pageSize)} onChange={(event) => setPageSize(Number(event.target.value))} className="w-32">
+                {pageSizeOptions.map((size) => (
+                  <option key={size} value={size}>
+                    {size} / página
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+        </>
+      ) : (
+        <ClientesKanbanView
+          rows={rows}
+          stages={optimisticData.stages}
+          movingIds={movingIds}
+          onOpenCliente={setSelectedCliente}
+          onMoveCliente={(clienteId, stageId) => {
+            void moveCliente(clienteId, stageId);
+          }}
+        />
+      )}
 
       <ClienteQuickDrawer cliente={selectedCliente} onClose={() => setSelectedCliente(null)} />
     </div>
