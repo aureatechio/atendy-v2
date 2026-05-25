@@ -6,6 +6,7 @@ import { Archive, ArchiveRestore, Loader2, MessageCircle } from "lucide-react";
 import { addComment, changeStage, setArchived } from "@/app/(protected)/clientes/[id]/actions";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { buildWhatsappHref } from "@/lib/clientes/format";
 import type { ClienteStage } from "@/lib/api/cliente";
 
 interface Props {
@@ -16,20 +17,13 @@ interface Props {
   isArchived: boolean;
 }
 
-function whatsappLink(value: string | null) {
-  if (!value) return null;
-  const digits = value.replace(/\D/g, "");
-  if (!digits) return null;
-  return `https://wa.me/${digits}`;
-}
-
 export function ClienteActions({ clienteId, whatsapp, currentStageId, stages, isArchived }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [stageValue, setStageValue] = useState(currentStageId ?? "");
   const [error, setError] = useState<string | null>(null);
 
-  const wa = whatsappLink(whatsapp);
+  const wa = buildWhatsappHref(whatsapp);
 
   const onChangeStage = (value: string) => {
     setStageValue(value);

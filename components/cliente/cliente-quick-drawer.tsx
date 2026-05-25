@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type ComponentType, type ReactNode, useEffect, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { currencyFormatter, htmlToPlainText, ptDateFormatter } from "@/lib/utils";
+import { buildWhatsappHref, formatNullableDate } from "@/lib/clientes/format";
+import { currencyFormatter, htmlToPlainText } from "@/lib/utils";
 import type { ClienteListItem, ClienteQuickDetail } from "@/lib/clientes/types";
 
 interface Props {
@@ -25,28 +26,78 @@ interface Props {
   onClose: () => void;
 }
 
-function parseDate(value: string | null) {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function fmtDate(value: string | null) {
-  const date = parseDate(value);
-  return date ? ptDateFormatter.format(date) : "—";
-}
-
-function whatsappLink(value: string | null) {
-  if (!value) return null;
-  const digits = value.replace(/\D/g, "");
-  return digits ? `https://wa.me/${digits}` : null;
-}
-
 function DetailLine({ label, value }: { label: string; value: string | null }) {
+  const text = value || "—";
+
   return (
     <div className="clientes-drawer-line">
       <span>{label}</span>
-      <strong title={value ?? "—"}>{value || "—"}</strong>
+      <strong title={text}>{text}</strong>
+    </div>
+  );
+}
+
+function DrawerMetric({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <Icon className="h-4 w-4" />
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function DrawerSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="clientes-drawer-section">
+      <h3>{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function DrawerLoadingState({ label }: { label: string }) {
+  return (
+    <div className="clientes-drawer-state inline">
+      <Loader2 className="h-4 w-4 animate-spin" /> {label}
+    </div>
+  );
+}
+
+function DrawerEmptyState({
+  icon: Icon,
+  label,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+}) {
+  return (
+    <div className="clientes-drawer-empty">
+      <Icon className="h-4 w-4" />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function ExternalResourceLinks({ links }: { links: Array<{ label: string; href: string | null }> }) {
+  const availableLinks = links.filter((link): link is { label: string; href: string } => Boolean(link.href));
+
+  return (
+    <div className="clientes-drawer-links">
+      {availableLinks.map((link) => (
+        <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer">
+          {link.label} <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      ))}
+      {availableLinks.length === 0 ? <p>Nenhum link cadastrado.</p> : null}
     </div>
   );
 }
@@ -104,7 +155,28 @@ export function ClienteQuickDrawer({ cliente, onClose }: Props) {
 
   if (!open || !current) return null;
 
-  const wa = whatsappLink(current.whatsapp);
+  const wa = buildWhatsappHref(current.whatsapp);
+  const loadingDetail = loading && !detail;
+  const metrics = [
+    { icon: Wallet, label: "Valor", value: currencyFormatter.format(current.valor) },
+    { icon: Calendar, label: "Prazo", value: formatNullableDate(current.prazoFinal) },
+    { icon: UserRound, label: "Responsável", value: current.responsavelNome ?? "—" },
+  ];
+  const quickDetails = [
+    { label: "Empresa", value: current.companyName },
+    { label: "CNPJ", value: current.companyCnpj },
+    { label: "Instagram", value: current.instagram },
+    { label: "Segmento", value: current.segmentoNome },
+    { label: "Subsegmento", value: current.subsegmentoNome },
+    { label: "Praça", value: current.praca },
+    { label: "Celebridade", value: current.celebridade },
+    { label: "Vigência", value: formatNullableDate(current.inicioVigencia) },
+  ];
+  const resourceLinks = [
+    { label: "Drive", href: current.linkPastaDrive },
+    { label: "Proposta", href: current.linkProposta },
+    { label: "Entrega", href: current.linkPastaEntrega },
+  ];
 
   return (
     <div className="clientes-drawer-overlay" role="dialog" aria-modal="true">
@@ -157,46 +229,22 @@ export function ClienteQuickDrawer({ cliente, onClose }: Props) {
         </div>
 
         <div className="clientes-drawer-kpis">
-          <div>
-            <Wallet className="h-4 w-4" />
-            <span>Valor</span>
-            <strong>{currencyFormatter.format(current.valor)}</strong>
-          </div>
-          <div>
-            <Calendar className="h-4 w-4" />
-            <span>Prazo</span>
-            <strong>{fmtDate(current.prazoFinal)}</strong>
-          </div>
-          <div>
-            <UserRound className="h-4 w-4" />
-            <span>Responsável</span>
-            <strong>{current.responsavelNome ?? "—"}</strong>
-          </div>
+          {metrics.map((metric) => (
+            <DrawerMetric key={metric.label} {...metric} />
+          ))}
         </div>
 
-        <section className="clientes-drawer-section">
-          <h3>Dados rápidos</h3>
+        <DrawerSection title="Dados rápidos">
           <div className="clientes-drawer-lines">
-            <DetailLine label="Empresa" value={current.companyName} />
-            <DetailLine label="CNPJ" value={current.companyCnpj} />
-            <DetailLine label="Instagram" value={current.instagram} />
-            <DetailLine label="Segmento" value={current.segmentoNome} />
-            <DetailLine label="Subsegmento" value={current.subsegmentoNome} />
-            <DetailLine label="Praça" value={current.praca} />
-            <DetailLine label="Celebridade" value={current.celebridade} />
-            <DetailLine label="Vigência" value={fmtDate(current.inicioVigencia)} />
+            {quickDetails.map((item) => (
+              <DetailLine key={item.label} label={item.label} value={item.value} />
+            ))}
           </div>
-        </section>
+        </DrawerSection>
 
-        <section className="clientes-drawer-section">
-          <h3>Links</h3>
-          <div className="clientes-drawer-links">
-            {current.linkPastaDrive ? <a href={current.linkPastaDrive} target="_blank" rel="noopener noreferrer">Drive <ExternalLink className="h-3.5 w-3.5" /></a> : null}
-            {current.linkProposta ? <a href={current.linkProposta} target="_blank" rel="noopener noreferrer">Proposta <ExternalLink className="h-3.5 w-3.5" /></a> : null}
-            {current.linkPastaEntrega ? <a href={current.linkPastaEntrega} target="_blank" rel="noopener noreferrer">Entrega <ExternalLink className="h-3.5 w-3.5" /></a> : null}
-            {!current.linkPastaDrive && !current.linkProposta && !current.linkPastaEntrega ? <p>Nenhum link cadastrado.</p> : null}
-          </div>
-        </section>
+        <DrawerSection title="Links">
+          <ExternalResourceLinks links={resourceLinks} />
+        </DrawerSection>
 
         {error ? (
           <div className="clientes-drawer-error">
@@ -205,52 +253,40 @@ export function ClienteQuickDrawer({ cliente, onClose }: Props) {
           </div>
         ) : null}
 
-        <section className="clientes-drawer-section">
-          <h3>Tarefas abertas</h3>
-          {loading && !detail ? (
-            <div className="clientes-drawer-state inline">
-              <Loader2 className="h-4 w-4 animate-spin" /> Carregando tarefas...
-            </div>
+        <DrawerSection title="Tarefas abertas">
+          {loadingDetail ? (
+            <DrawerLoadingState label="Carregando tarefas..." />
           ) : (
             <div className="clientes-drawer-list">
               {detail && detail.tasks.length === 0 ? (
-                <div className="clientes-drawer-empty">
-                  <Inbox className="h-4 w-4" />
-                  <span>Nenhuma tarefa aberta.</span>
-                </div>
+                <DrawerEmptyState icon={Inbox} label="Nenhuma tarefa aberta." />
               ) : null}
               {detail?.tasks.map((task) => (
                 <article key={task.id} className="clientes-drawer-item">
                   <div>
                     <strong>{task.title ?? "Tarefa sem título"}</strong>
-                    <span>{task.assignedToName ?? "Sem responsável"} · {fmtDate(task.deadline)}</span>
+                    <span>{task.assignedToName ?? "Sem responsável"} · {formatNullableDate(task.deadline)}</span>
                   </div>
                   {task.isUrgent ? <Badge variant="danger">Urgente</Badge> : null}
                 </article>
               ))}
             </div>
           )}
-        </section>
+        </DrawerSection>
 
-        <section className="clientes-drawer-section">
-          <h3>Próximas reuniões</h3>
-          {loading && !detail ? (
-            <div className="clientes-drawer-state inline">
-              <Loader2 className="h-4 w-4 animate-spin" /> Carregando reuniões...
-            </div>
+        <DrawerSection title="Próximas reuniões">
+          {loadingDetail ? (
+            <DrawerLoadingState label="Carregando reuniões..." />
           ) : (
             <div className="clientes-drawer-list">
               {detail && detail.meetings.length === 0 ? (
-                <div className="clientes-drawer-empty">
-                  <Calendar className="h-4 w-4" />
-                  <span>Nenhuma reunião agendada.</span>
-                </div>
+                <DrawerEmptyState icon={Calendar} label="Nenhuma reunião agendada." />
               ) : null}
               {detail?.meetings.map((meeting) => (
                 <article key={meeting.id} className="clientes-drawer-item">
                   <div>
                     <strong>{meeting.title ?? "Reunião sem título"}</strong>
-                    <span>{fmtDate(meeting.scheduledAt)} · {meeting.organizerName ?? "Sem organizador"}</span>
+                    <span>{formatNullableDate(meeting.scheduledAt)} · {meeting.organizerName ?? "Sem organizador"}</span>
                   </div>
                   {meeting.meetingLink ? (
                     <a href={meeting.meetingLink} target="_blank" rel="noopener noreferrer" aria-label="Abrir reunião">
@@ -261,34 +297,28 @@ export function ClienteQuickDrawer({ cliente, onClose }: Props) {
               ))}
             </div>
           )}
-        </section>
+        </DrawerSection>
 
-        <section className="clientes-drawer-section">
-          <h3>Últimos comentários</h3>
-          {loading && !detail ? (
-            <div className="clientes-drawer-state inline">
-              <Loader2 className="h-4 w-4 animate-spin" /> Carregando comentários...
-            </div>
+        <DrawerSection title="Últimos comentários">
+          {loadingDetail ? (
+            <DrawerLoadingState label="Carregando comentários..." />
           ) : (
             <div className="clientes-drawer-list">
               {detail && detail.comments.length === 0 ? (
-                <div className="clientes-drawer-empty">
-                  <MessageCircle className="h-4 w-4" />
-                  <span>Nenhum comentário recente.</span>
-                </div>
+                <DrawerEmptyState icon={MessageCircle} label="Nenhum comentário recente." />
               ) : null}
               {detail?.comments.map((comment) => (
                 <article key={comment.id} className="clientes-drawer-comment">
                   <header>
                     <strong>{comment.authorName ?? "Atendy"}</strong>
-                    <span>{fmtDate(comment.createdAt)}</span>
+                    <span>{formatNullableDate(comment.createdAt)}</span>
                   </header>
                   <p>{htmlToPlainText(comment.content)}</p>
                 </article>
               ))}
             </div>
           )}
-        </section>
+        </DrawerSection>
 
         {detail && detail.tasks.length > 0 ? (
           <div className="clientes-drawer-foot">

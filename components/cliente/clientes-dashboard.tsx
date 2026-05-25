@@ -25,7 +25,8 @@ import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useClientesFilters, clientesPeriodFieldOptions, clientesPeriodPresets } from "@/hooks/useClientesFilters";
 import { usePaginatedTable } from "@/hooks/usePaginatedTable";
-import { currencyFormatter, ptDateFormatter } from "@/lib/utils";
+import { buildWhatsappHref, formatNullableDate, parseClienteDate } from "@/lib/clientes/format";
+import { currencyFormatter } from "@/lib/utils";
 import type { SortDirection } from "@/lib/types";
 import type { ClienteListItem, ClientesColumnKey, ClientesData, ClientesPeriodField, ClientesSortKey } from "@/lib/clientes/types";
 
@@ -50,31 +51,14 @@ const MONTH_LABELS = [
 
 const STORAGE_KEY = "atendy:clientes:columns";
 
-function parseDate(value: string | null) {
-  if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function fmtDate(value: string | null) {
-  const parsed = parseDate(value);
-  return parsed ? ptDateFormatter.format(parsed) : "—";
-}
-
 function fmtDays(value: number | null) {
   if (value === null) return "—";
   if (value === 0) return "hoje";
   return `${value}d`;
 }
 
-function whatsappLink(value: string | null) {
-  if (!value) return null;
-  const digits = value.replace(/\D/g, "");
-  return digits ? `https://wa.me/${digits}` : null;
-}
-
 function prazoVariant(value: string | null) {
-  const date = parseDate(value);
+  const date = parseClienteDate(value);
   if (!date) return "default" as const;
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -173,7 +157,7 @@ function renderCell(column: ClientesColumnKey, row: ClienteListItem, openDrawer:
   }
 
   if (column === "responsavel") return row.responsavelNome ?? <span className="ds-text-muted">Sem responsável</span>;
-  if (column === "prazo") return <Badge variant={prazoVariant(row.prazoFinal)}>{fmtDate(row.prazoFinal)}</Badge>;
+  if (column === "prazo") return <Badge variant={prazoVariant(row.prazoFinal)}>{formatNullableDate(row.prazoFinal)}</Badge>;
   if (column === "tempo") return fmtDays(row.diasNaEtapa);
   if (column === "tarefas") {
     return (
@@ -187,7 +171,7 @@ function renderCell(column: ClientesColumnKey, row: ClienteListItem, openDrawer:
   if (column === "celebridade") return row.celebridade ?? "—";
   if (column === "praca") return row.praca ?? "—";
 
-  const wa = whatsappLink(row.whatsapp);
+  const wa = buildWhatsappHref(row.whatsapp);
   return (
     <div className="clientes-row-actions" onClick={(event) => event.stopPropagation()}>
       {wa ? (
