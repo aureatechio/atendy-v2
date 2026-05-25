@@ -28,6 +28,10 @@ Ultima atualizacao: 2026-05-18
 | `client_pipeline_stages` | Etapas e slugs do pipeline |
 | `clientes_cadastro` | Dados resumidos do cliente exibidos na tarefa |
 
+Contrato complementar:
+
+- [etapas-subetapas.md](../producao-pipeline-operacional/etapas-subetapas.md)
+
 ## RLS e permissoes
 
 - `production_tasks`: leitura de tarefas elegiveis e update de `assigned_to` devem ser permitidos apenas a usuarios autorizados.

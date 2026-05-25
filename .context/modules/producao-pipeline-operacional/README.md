@@ -10,6 +10,10 @@ Ultima atualizacao: 2026-05-18
 - `.context/modules_old/modules/modulo-dashboard-producao/README.md`
 - `.context/modules_old/modules/pauta/README.md`
 
+## Documentacao complementar
+
+- [etapas-subetapas.md](etapas-subetapas.md)
+
 ## Regras de negocio preservadas
 
 - Producao opera tarefas por etapa do pipeline.

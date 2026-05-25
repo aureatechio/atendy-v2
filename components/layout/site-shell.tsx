@@ -34,11 +34,20 @@ type NavLink = {
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   requires?: LinkRequirement;
+  children?: Array<{ href: string; label: string }>;
 };
 
 const links: NavLink[] = [
   { href: "/", label: "Dashboard", icon: Home },
-  { href: "/funil", label: "Funil de Produção", icon: Workflow },
+  {
+    href: "/funil",
+    label: "Funil de Produção",
+    icon: Workflow,
+    children: [
+      { href: "/funil", label: "Funil" },
+      { href: "/funil/v1", label: "Funil detalhado" },
+    ],
+  },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/alertas", label: "Alertas", icon: Bell },
   { href: "/cs", label: "Gestão CS", icon: Sparkles, requires: "csAccess" },
@@ -72,7 +81,14 @@ function getPageMeta(pathname: string) {
     };
   }
 
-  if (pathname === "/funil") {
+  if (pathname === "/funil/v1") {
+    return {
+      title: "Funil Detalhado",
+      trail: "Funil / Detalhado",
+    };
+  }
+
+  if (pathname?.startsWith("/funil")) {
     return {
       title: "Funil de Produção",
       trail: "Funil",
@@ -214,9 +230,40 @@ export function SiteShell({
           </div>
 
           <nav className="app-sidebar-nav" aria-label="Navegação principal">
-            {visibleLinks.map(({ href, label, icon: Icon }) => {
+            {visibleLinks.map(({ href, label, icon: Icon, children }) => {
               const isActive = pathname === href || (href !== "/" && pathname?.startsWith(href));
               const showAssignmentsBadge = href === "/clientes" && newAssignmentsCount > 0;
+
+              if (children) {
+                return (
+                  <div key={href} className="app-sidebar-group">
+                    <Link
+                      href={href}
+                      className={`app-sidebar-link app-sidebar-group-header ${isActive ? "is-active" : ""}`}
+                      title={collapsed ? label : undefined}
+                    >
+                      <Icon />
+                      <span>{label}</span>
+                      <span className="app-sidebar-link-badge">Novo</span>
+                    </Link>
+                    <div className="app-sidebar-group-children">
+                      {children.map((child) => {
+                        const isChildActive = pathname === child.href;
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            className={`app-sidebar-sublink ${isChildActive ? "is-active" : ""}`}
+                          >
+                            <span>{child.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <Link
                   key={href}
@@ -226,7 +273,6 @@ export function SiteShell({
                 >
                   <Icon />
                   <span>{label}</span>
-                  {label.includes("Funil") ? <span className="app-sidebar-link-badge">Novo</span> : null}
                   {showAssignmentsBadge ? (
                     <span
                       className="app-sidebar-link-count"

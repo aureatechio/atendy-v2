@@ -31,6 +31,10 @@ Ultima atualizacao: 2026-05-18
 | `system_notifications` | Notificacoes persistidas para aprovacao/reprovacao |
 | `client_pipeline_stages` | Etapas relacionadas a celebridade e retorno |
 
+Contrato complementar:
+
+- [etapas-subetapas.md](../producao-pipeline-operacional/etapas-subetapas.md)
+
 ## RLS e permissoes
 
 - Fluxos de aprovacao devem respeitar permissao de producao/supervisao.

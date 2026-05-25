@@ -79,6 +79,14 @@
   display: none;
 }
 
+.app-sidebar[data-collapsed="true"] .app-sidebar-group-children {
+  display: none;
+}
+
+.app-sidebar[data-collapsed="true"] .app-sidebar-group .app-sidebar-link.is-active {
+  background: var(--primary-soft);
+}
+
 .app-sidebar[data-collapsed="true"] .app-sidebar-nav {
   padding: 14px 6px;
 }

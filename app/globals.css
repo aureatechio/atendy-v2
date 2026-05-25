@@ -175,6 +175,57 @@ a {
   color: var(--primary);
 }
 
+.app-sidebar-group {
+  margin-bottom: 0;
+}
+
+.app-sidebar-group .app-sidebar-link.is-active {
+  background: transparent;
+}
+
+.app-sidebar-group-children {
+  padding-left: 16px;
+  margin-bottom: 4px;
+}
+
+.app-sidebar-sublink {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color var(--motion-short), color var(--motion-short);
+  margin-bottom: 2px;
+}
+
+.app-sidebar-sublink::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.35;
+  flex-shrink: 0;
+}
+
+.app-sidebar-sublink:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.app-sidebar-sublink.is-active {
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+}
+
+.app-sidebar-sublink.is-active::before {
+  opacity: 1;
+}
+
 .app-sidebar-footer {
   padding: 12px;
   border-top: 1px solid var(--border);

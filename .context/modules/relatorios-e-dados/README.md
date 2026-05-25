@@ -41,6 +41,10 @@ Ultima atualizacao: 2026-05-18
 | `production_tasks` | Ocupacao ativa por cliente e etapa |
 | `clientes_cadastro` | Clientes ativos, valores, etapa atual e datas de entrada na etapa |
 
+Detalhamento complementar de etapa/subetapa:
+
+- [etapas-subetapas.md](../producao-pipeline-operacional/etapas-subetapas.md)
+
 ## Contratos Supabase legados de relatorios
 
 | Recurso | Uso |
