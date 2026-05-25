@@ -22,19 +22,22 @@ import { useAuth } from "@/hooks/use-auth";
 
 type LinkRequirement = "admin" | "csAccess";
 
+type SiteRoute =
+  | "/"
+  | "/funil"
+  | "/funil/v1"
+  | "/clientes"
+  | "/alertas"
+  | "/admin/users"
+  | "/configuracoes"
+  | "/cs";
+
 type NavLink = {
-  href:
-    | "/"
-    | "/funil"
-    | "/clientes"
-    | "/alertas"
-    | "/admin/users"
-    | "/configuracoes"
-    | "/cs";
+  href: SiteRoute;
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   requires?: LinkRequirement;
-  children?: Array<{ href: string; label: string }>;
+  children?: Array<{ href: SiteRoute; label: string }>;
 };
 
 const links: NavLink[] = [
