@@ -100,7 +100,12 @@ export interface Alert {
   deadline: string;
   lastSeenAt: string;
   snoozedUntil: string | null;
-  cliente: { id: string; nome: string; responsavelId: string | null };
+  cliente: {
+    id: string;
+    nome: string;
+    responsavelId: string | null;
+    responsavelNome: string | null;
+  };
   stage: { id: string; name: string; slug: string; color: string } | null;
   task: { id: string; title: string | null } | null;
 }

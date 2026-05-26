@@ -148,11 +148,18 @@ export function AlertsView() {
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
 
   const responsaveis = useMemo(() => {
-    const set = new Set<string>();
+    const options = new Map<string, string>();
     for (const a of allAlerts) {
-      if (a.cliente.responsavelId) set.add(a.cliente.responsavelId);
+      if (a.cliente.responsavelId) {
+        options.set(
+          a.cliente.responsavelId,
+          a.cliente.responsavelNome ?? "Sem nome",
+        );
+      }
     }
-    return [...set];
+    return [...options.entries()].sort((a, b) =>
+      a[1].localeCompare(b[1], "pt-BR"),
+    );
   }, [allAlerts]);
 
   const filtered = useMemo(() => {
@@ -351,9 +358,9 @@ export function AlertsView() {
               aria-label="Filtrar por responsável"
             >
               <option value="all">Todos responsáveis</option>
-              {responsaveis.map((r) => (
-                <option key={r} value={r}>
-                  {r.slice(0, 8)}…
+              {responsaveis.map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
                 </option>
               ))}
             </Select>

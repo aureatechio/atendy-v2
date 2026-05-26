@@ -10,8 +10,10 @@ import {
   type EtapaDistribuicaoItem,
 } from "@/components/dashboard/distribuicao-etapas-pie-card";
 import { SemResponsavelKpiCard } from "@/components/dashboard/sem-responsavel-kpi-card";
+import { SlaEstouradoListCard } from "@/components/dashboard/sla-estourado-list-card";
 import type { SemResponsavelClienteItem } from "@/components/dashboard/sem-responsavel-drawer";
 import type { ResponsavelOption } from "@/components/dashboard/atribuir-responsavel-drawer";
+import { buildSlaEstouradoClientes } from "@/lib/dashboard/sla-estourado";
 import { currencyFormatter } from "@/lib/utils";
 import type { FunilData } from "@/lib/types";
 
@@ -54,6 +56,7 @@ export default async function HomePage() {
   const clientesNaoAtribuidos = funil
     ? Object.values(funil.clients_map).filter((cliente) => !cliente.responsavelId).length
     : 0;
+  const slaEstouradoClientes = funil ? buildSlaEstouradoClientes(funil) : [];
 
   const slaRank: Record<string, number> = { overdue: 0, warning: 1, ok: 2, none: 3 };
   const maisNovoSemProprietario: SemProprietarioClienteItem[] = funil
@@ -170,6 +173,7 @@ export default async function HomePage() {
       </div>
 
       <div className="dashboard-secondary-grid">
+        <SlaEstouradoListCard clientes={slaEstouradoClientes} />
         <SemProprietarioMaisNovoCard
           clientes={maisNovoSemProprietario}
           responsaveis={responsaveis}

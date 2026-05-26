@@ -40,6 +40,10 @@ import { Button } from "@/components/ui/button";
 import { StageCreateDialog } from "@/components/settings/stage-create-dialog";
 import { StageEditSheet, type SlaUnit, type StageRow } from "@/components/settings/stage-edit-sheet";
 import { StageImpactDialog } from "@/components/settings/stage-impact-dialog";
+import {
+  applyStageReorderProjection,
+  type StageReorderUpdate,
+} from "@/lib/settings/stage-reorder";
 
 type Message = { kind: "success" | "error"; text: string } | null;
 
@@ -85,9 +89,11 @@ export function EtapasSettings() {
   const [showInactive, setShowInactive] = useState(false);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
+  const [pendingReorderIds, setPendingReorderIds] = useState<Set<string>>(() => new Set());
 
-  const loadStages = useCallback(async () => {
-    setLoading(true);
+  const loadStages = useCallback(async (options?: { showLoading?: boolean }) => {
+    const showLoading = options?.showLoading ?? true;
+    if (showLoading) setLoading(true);
     try {
       const response = await fetch("/api/admin/pipeline-stages", { cache: "no-store" });
       const payload = await response.json();
@@ -97,7 +103,7 @@ export function EtapasSettings() {
       }
       setStages(payload.stages);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
 
@@ -238,8 +244,15 @@ export function EtapasSettings() {
     }
   }
 
-  async function applyReorder(updates: Array<{ id: string; order_index: number; parent_stage_id: string | null }>) {
+  async function applyReorder(updates: StageReorderUpdate[]) {
+    const previousStages = stages;
+    const pendingIds = new Set(updates.map((update) => update.id));
+
     setReordering(true);
+    setPendingReorderIds(pendingIds);
+    setMessage(null);
+    setStages((curr) => applyStageReorderProjection(curr, updates));
+
     try {
       const response = await fetch("/api/admin/pipeline-stages/reorder", {
         method: "POST",
@@ -256,10 +269,18 @@ export function EtapasSettings() {
       setStages((curr) => curr.map((item) => updatedById.get(item.id) ?? item));
       setMessage({ kind: "success", text: "Ordem atualizada." });
     } catch (err) {
-      setMessage({ kind: "error", text: err instanceof Error ? err.message : "Falha." });
-      await loadStages(); // reverte para estado autoritativo
+      setStages(previousStages);
+      setMessage({
+        kind: "error",
+        text:
+          err instanceof Error
+            ? `${err.message} A lista foi recarregada.`
+            : "Não foi possível salvar a nova ordem. A lista foi recarregada.",
+      });
+      await loadStages({ showLoading: false });
     } finally {
       setReordering(false);
+      setPendingReorderIds(new Set());
     }
   }
 
@@ -270,12 +291,14 @@ export function EtapasSettings() {
   }
 
   function handleDragStart(event: DragStartEvent) {
+    if (reordering) return;
     setActiveDragId(String(event.active.id));
   }
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     setActiveDragId(null);
+    if (reordering) return;
     if (!over) return;
     const fromDesc = decodeId(String(active.id));
     const toDesc = decodeId(String(over.id));
@@ -308,7 +331,7 @@ export function EtapasSettings() {
       const newIndex = rootStages.findIndex((s) => s.id === toDesc.id);
       if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
       const reordered = arrayMove(rootStages, oldIndex, newIndex);
-      const updates = reordered.map((s, idx) => ({
+      const updates: StageReorderUpdate[] = reordered.map((s, idx) => ({
         id: s.id,
         order_index: idx,
         parent_stage_id: null,
@@ -324,7 +347,7 @@ export function EtapasSettings() {
       const newIndex = subs.findIndex((s) => s.id === toDesc.id);
       if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
       const reordered = arrayMove(subs, oldIndex, newIndex);
-      const updates = reordered.map((s, idx) => ({
+      const updates: StageReorderUpdate[] = reordered.map((s, idx) => ({
         id: s.id,
         order_index: idx,
         parent_stage_id: fromDesc.parentId,
@@ -383,7 +406,7 @@ export function EtapasSettings() {
       projectedSubs.set(newParentId, [...before, sourceStage, ...after]);
     }
 
-    const updates: Array<{ id: string; order_index: number; parent_stage_id: string | null }> = [];
+    const updates: StageReorderUpdate[] = [];
     projectedRoots.forEach((s, idx) => {
       updates.push({ id: s.id, order_index: idx, parent_stage_id: null });
     });
@@ -444,11 +467,15 @@ export function EtapasSettings() {
       {reordering ? (
         <div className="settings-alert settings-alert--info">
           <Loader2 className="settings-spin" />
-          <span>Salvando nova ordem…</span>
+          <span>Ordem aplicada. Salvando…</span>
         </div>
       ) : null}
 
-      <section className="settings-stage-list" aria-label="Etapas do funil">
+      <section
+        className={`settings-stage-list${reordering ? " is-reordering" : ""}`}
+        aria-label="Etapas do funil"
+        aria-busy={reordering}
+      >
         {loading ? (
           <div className="settings-empty panel-card">Carregando etapas…</div>
         ) : rootStages.length === 0 ? (
@@ -484,6 +511,8 @@ export function EtapasSettings() {
                     }}
                     onEditSub={(sub) => setEditStage(sub)}
                     onDeactivateSub={(sub) => setImpactStage(sub)}
+                    isReordering={reordering}
+                    savingStageIds={pendingReorderIds}
                   />
                 ))}
               </ol>
@@ -609,6 +638,8 @@ interface RootStageCardProps {
   onAddSub: () => void;
   onEditSub: (sub: StageRow) => void;
   onDeactivateSub: (sub: StageRow) => void;
+  isReordering: boolean;
+  savingStageIds: Set<string>;
 }
 
 function RootStageCard({
@@ -622,11 +653,15 @@ function RootStageCard({
   onAddSub,
   onEditSub,
   onDeactivateSub,
+  isReordering,
+  savingStageIds,
 }: RootStageCardProps) {
   const id = encodeId({ type: "root", id: stage.id });
   const { setNodeRef, transform, transition, isDragging, attributes, listeners } = useSortable({
     id,
+    disabled: isReordering,
   });
+  const isSaving = savingStageIds.has(stage.id);
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -636,12 +671,17 @@ function RootStageCard({
   };
 
   return (
-    <li ref={setNodeRef} style={style} className="settings-stage panel-card">
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={`settings-stage panel-card${isSaving ? " is-saving" : ""}`}
+    >
       <header className="settings-stage-header">
         <button
           type="button"
           className="settings-stage-grip"
           aria-label="Arrastar"
+          disabled={isReordering}
           {...attributes}
           {...listeners}
         >
@@ -696,6 +736,13 @@ function RootStageCard({
           </div>
         </div>
 
+        {isSaving ? (
+          <span className="settings-stage-save-status">
+            <Loader2 className="settings-spin" />
+            Salvando
+          </span>
+        ) : null}
+
         <div className="settings-stage-actions">
           <Button type="button" size="sm" variant="ghost" onClick={onAddSub} title="Adicionar subetapa">
             <Plus />
@@ -737,6 +784,8 @@ function RootStageCard({
                   index={subIndex}
                   onEdit={() => onEditSub(sub)}
                   onDeactivate={() => onDeactivateSub(sub)}
+                  isReordering={isReordering}
+                  isSaving={savingStageIds.has(sub.id)}
                 />
               ))}
             </SortableContext>
@@ -753,12 +802,23 @@ interface SubStageRowProps {
   index: number;
   onEdit: () => void;
   onDeactivate: () => void;
+  isReordering: boolean;
+  isSaving: boolean;
 }
 
-function SubStageRow({ stage, parentId, index, onEdit, onDeactivate }: SubStageRowProps) {
+function SubStageRow({
+  stage,
+  parentId,
+  index,
+  onEdit,
+  onDeactivate,
+  isReordering,
+  isSaving,
+}: SubStageRowProps) {
   const id = encodeId({ type: "sub", id: stage.id, parentId });
   const { setNodeRef, transform, transition, isDragging, attributes, listeners } = useSortable({
     id,
+    disabled: isReordering,
   });
 
   const style: React.CSSProperties = {
@@ -768,11 +828,16 @@ function SubStageRow({ stage, parentId, index, onEdit, onDeactivate }: SubStageR
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="settings-substage">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`settings-substage${isSaving ? " is-saving" : ""}`}
+    >
       <button
         type="button"
         className="settings-substage-grip"
         aria-label="Arrastar"
+        disabled={isReordering}
         {...attributes}
         {...listeners}
       >
@@ -792,6 +857,12 @@ function SubStageRow({ stage, parentId, index, onEdit, onDeactivate }: SubStageR
       ) : (
         <span className="settings-substage-sla settings-substage-sla--muted">SLA herdado</span>
       )}
+      {isSaving ? (
+        <span className="settings-substage-save-status">
+          <Loader2 className="settings-spin" />
+          Salvando
+        </span>
+      ) : null}
       <div className="settings-substage-actions">
         <Button type="button" size="sm" variant="ghost" onClick={onEdit} title="Editar">
           <Pencil />

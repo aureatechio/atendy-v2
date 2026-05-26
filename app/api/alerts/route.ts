@@ -31,6 +31,11 @@ interface RawRow {
   } | null;
 }
 
+interface ProfileRow {
+  id: string;
+  full_name: string | null;
+}
+
 export async function GET() {
   const supabase = await createClient();
   const {
@@ -60,36 +65,61 @@ export async function GET() {
   }
 
   const rows = (data as unknown as RawRow[]) ?? [];
+  const profileIds = [
+    ...new Set(
+      rows
+        .map((r) => r.cliente?.responsavel_atendimento)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const { data: profiles } = profileIds.length
+    ? await supabase.from("profiles").select("id,full_name").in("id", profileIds)
+    : { data: [] };
+  const profileById = new Map(
+    ((profiles as ProfileRow[] | null) ?? []).map((profile) => [
+      profile.id,
+      profile,
+    ]),
+  );
+
   const alerts: Alert[] = rows
     .filter((r) => r.cliente)
-    .map((r) => ({
-      id: r.id,
-      type: (r.type ?? "stage_sla") as AlertType,
-      status: r.status,
-      firedAt: r.fired_at,
-      deadline: r.deadline,
-      lastSeenAt: r.last_seen_at,
-      snoozedUntil: r.snoozed_until,
-      cliente: {
-        id: r.cliente!.id,
-        nome: r.cliente!.nomecliente ?? r.cliente!.nome ?? "Sem nome",
-        responsavelId: r.cliente!.responsavel_atendimento,
-      },
-      stage: r.stage
-        ? {
-            id: r.stage.id,
-            name: r.stage.name ?? r.stage.slug ?? "",
-            slug: r.stage.slug ?? "",
-            color: r.stage.color ?? "#64748b",
-          }
-        : null,
-      task: r.task
-        ? {
-            id: r.task.id,
-            title: r.task.title,
-          }
-        : null,
-    }));
+    .map((r) => {
+      const responsavelId = r.cliente!.responsavel_atendimento;
+      const responsavel = responsavelId
+        ? profileById.get(responsavelId) ?? null
+        : null;
+
+      return {
+        id: r.id,
+        type: (r.type ?? "stage_sla") as AlertType,
+        status: r.status,
+        firedAt: r.fired_at,
+        deadline: r.deadline,
+        lastSeenAt: r.last_seen_at,
+        snoozedUntil: r.snoozed_until,
+        cliente: {
+          id: r.cliente!.id,
+          nome: r.cliente!.nomecliente ?? r.cliente!.nome ?? "Sem nome",
+          responsavelId,
+          responsavelNome: responsavel?.full_name ?? null,
+        },
+        stage: r.stage
+          ? {
+              id: r.stage.id,
+              name: r.stage.name ?? r.stage.slug ?? "",
+              slug: r.stage.slug ?? "",
+              color: r.stage.color ?? "#64748b",
+            }
+          : null,
+        task: r.task
+          ? {
+              id: r.task.id,
+              title: r.task.title,
+            }
+          : null,
+      };
+    });
 
   return NextResponse.json({ alerts });
 }
