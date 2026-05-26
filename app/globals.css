@@ -7454,10 +7454,7 @@ a.link-action {
 }
 
 .settings-body {
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 24px;
-  align-items: start;
+  display: block;
 }
 
 .settings-nav {
