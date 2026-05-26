@@ -92,5 +92,8 @@ export async function setArchived(clienteId: string, archived: boolean): Promise
   if (error) return { ok: false, error: error.message };
 
   revalidatePath(`/clientes/${clienteId}`);
+  revalidatePath("/clientes");
+  revalidatePath("/funil");
+  revalidatePath("/funil/v1");
   return { ok: true };
 }
