@@ -14,6 +14,7 @@ export interface ClienteRawStage {
   order_index: number | null;
   is_final: boolean | null;
   is_active: boolean | null;
+  parent_stage_id?: string | null;
 }
 
 export interface ClienteRawProfile {
@@ -155,6 +156,7 @@ export function buildClientesData(input: BuildClientesDataInput): ClientesData {
       order_index: Number(stage.order_index ?? 0),
       is_final: Boolean(stage.is_final),
       is_active: stage.is_active !== false,
+      parent_stage_id: stage.parent_stage_id ?? null,
     }))
     .sort((a, b) => a.order_index - b.order_index);
 

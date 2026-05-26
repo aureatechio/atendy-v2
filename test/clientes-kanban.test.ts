@@ -10,6 +10,7 @@ const baseStage: ClienteStageSummary = {
   order_index: 1,
   is_final: false,
   is_active: true,
+  parent_stage_id: null,
 };
 
 const baseItem: ClienteListItem = {
@@ -116,5 +117,40 @@ describe("buildClientesKanbanColumns", () => {
     );
 
     expect(columns.map((column) => column.id)).toEqual(["stage-briefing"]);
+  });
+
+  it("usa apenas etapas mae como colunas e agrupa clientes das subetapas no pai", () => {
+    const columns = buildClientesKanbanColumns(
+      [
+        { ...baseItem, id: "cliente-pai", stageId: "stage-producao", valor: 500 },
+        { ...baseItem, id: "cliente-sub", stageId: "stage-design", valor: 900 },
+      ],
+      [
+        {
+          ...baseStage,
+          id: "stage-producao",
+          name: "Producao",
+          slug: "producao",
+          order_index: 1,
+          parent_stage_id: null,
+        },
+        {
+          ...baseStage,
+          id: "stage-design",
+          name: "Design",
+          slug: "design",
+          order_index: 1,
+          parent_stage_id: "stage-producao",
+        },
+      ],
+    );
+
+    expect(columns.map((column) => column.id)).toEqual(["stage-producao"]);
+    expect(columns[0]).toMatchObject({
+      name: "Producao",
+      count: 2,
+      totalValue: 1400,
+    });
+    expect(columns[0].items.map((item) => item.id)).toEqual(["cliente-pai", "cliente-sub"]);
   });
 });
