@@ -48,6 +48,14 @@ function rowLabel(a: Alert) {
   return a.stage?.name ?? "";
 }
 
+function logOpened(alert: Alert) {
+  void fetch("/api/alerts/toast-events", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ event: "opened", alertIds: [alert.id] }),
+  }).catch(() => {});
+}
+
 export function SlaBell() {
   // Singleton de toasts: APENAS este hook deve disparar notificações para
   // evitar cascata duplicada (a página /alertas usa enableToasts=false).
@@ -167,7 +175,10 @@ export function SlaBell() {
                             href={`/clientes/${a.cliente.id}`}
                             className="alerts-bell-row"
                             data-status={a.status}
-                            onClick={() => setOpen(false)}
+                            onClick={() => {
+                              logOpened(a);
+                              setOpen(false);
+                            }}
                           >
                             <span
                               className="alerts-bell-row-dot"

@@ -33,6 +33,10 @@ function pad2(value: number) {
   return String(value).padStart(2, "0");
 }
 
+function padYear(value: number) {
+  return String(value).padStart(4, "0");
+}
+
 function isValidDateParts(year: number, month: number, day: number) {
   const d = new Date(Date.UTC(year, month - 1, day));
   return (
@@ -44,7 +48,7 @@ function isValidDateParts(year: number, month: number, day: number) {
 
 function buildBrDate(year: number, month: number, day: number): ParsedBrDate | null {
   if (!isValidDateParts(year, month, day)) return null;
-  const iso = `${year}-${pad2(month)}-${pad2(day)}`;
+  const iso = `${padYear(year)}-${pad2(month)}-${pad2(day)}`;
   return {
     iso,
     start: new Date(`${iso}T00:00:00-03:00`),
