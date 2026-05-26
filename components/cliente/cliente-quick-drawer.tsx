@@ -170,7 +170,8 @@ export function ClienteQuickDrawer({ cliente, onClose }: Props) {
     { label: "Subsegmento", value: current.subsegmentoNome },
     { label: "Praça", value: current.praca },
     { label: "Celebridade", value: current.celebridade },
-    { label: "Vigência", value: formatNullableDate(current.inicioVigencia) },
+    { label: "Início vigência", value: formatNullableDate(current.inicioVigencia) },
+    { label: "Vigência final", value: formatNullableDate(current.vigenciaFinal) },
   ];
   const resourceLinks = [
     { label: "Drive", href: current.linkPastaDrive },

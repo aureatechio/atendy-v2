@@ -18,6 +18,7 @@ const TYPE_LABELS: Record<AlertType, string> = {
   stage_sla: "SLA da etapa",
   task_overdue: "Tarefa atrasada",
   followup: "Follow-up",
+  contract_expiry: "Fim de vigência",
 };
 
 function loadSeenIds(): Set<string> {

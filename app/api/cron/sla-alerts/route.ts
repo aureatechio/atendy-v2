@@ -15,6 +15,10 @@ import {
   type FollowupStageRow,
 } from "@/lib/alerts/evaluateFollowup";
 import {
+  evaluateContractExpiry,
+  type ContractExpiryClienteRow,
+} from "@/lib/alerts/evaluateContractExpiry";
+import {
   diffAlerts,
   type CurrentAlert,
   type OpenAlert,
@@ -78,9 +82,18 @@ export async function GET(req: Request) {
   let clientes: ClienteRow[];
   let lastInteractions: LastInteractionRow[];
   let holidayRows: HolidayRow[];
+  let contractClientes: ContractExpiryClienteRow[];
 
   try {
-    [stages, stageTasks, overdueTasks, clientes, lastInteractions, holidayRows] =
+    [
+      stages,
+      stageTasks,
+      overdueTasks,
+      clientes,
+      lastInteractions,
+      holidayRows,
+      contractClientes,
+    ] =
       await Promise.all([
         fetchAll<StageRow & FollowupStageRow>((from, to) =>
           supabase
@@ -125,6 +138,13 @@ export async function GET(req: Request) {
         fetchAll<HolidayRow>((from, to) =>
           supabase.from("business_holidays").select("date").range(from, to),
         ),
+        fetchAll<ContractExpiryClienteRow>((from, to) =>
+          supabase
+            .from("clientes_cadastro")
+            .select("id,vigencia,inicio_vigencia,data_contrato_assinado")
+            .not("vigencia", "is", null)
+            .range(from, to),
+        ),
       ]);
   } catch (err) {
     return NextResponse.json(
@@ -153,15 +173,20 @@ export async function GET(req: Request) {
     lastInteractionByCliente,
   });
 
+  const contractExpiryAlerts = evaluateContractExpiry({
+    clientes: contractClientes,
+  });
+
   const snapshot: CurrentAlert[] = [
     ...stageSlaAlerts,
     ...taskOverdueAlerts,
     ...followupAlerts,
+    ...contractExpiryAlerts,
   ];
 
   const { data: openAlertsRaw, error: openErr } = await supabase
     .from("sla_alerts")
-    .select("id,type,cliente_id,stage_id,task_id,status")
+    .select("id,type,cliente_id,stage_id,task_id,status,entered_at,deadline")
     .is("resolved_at", null);
   if (openErr) {
     return NextResponse.json(
@@ -177,6 +202,8 @@ export async function GET(req: Request) {
     stage_id: (a.stage_id as string | null) ?? null,
     task_id: (a.task_id as string | null) ?? null,
     status: a.status as "warning" | "overdue",
+    entered_at: a.entered_at as string,
+    deadline: a.deadline as string,
   }));
 
   const ops = diffAlerts(snapshot, openAlerts);
@@ -201,7 +228,12 @@ export async function GET(req: Request) {
   for (const upd of ops.toUpdate) {
     const { error } = await supabase
       .from("sla_alerts")
-      .update({ status: upd.status, last_seen_at: now })
+      .update({
+        status: upd.status,
+        entered_at: upd.entered_at,
+        deadline: upd.deadline,
+        last_seen_at: now,
+      })
       .eq("id", upd.id);
     if (error) {
       return NextResponse.json(
@@ -244,6 +276,7 @@ export async function GET(req: Request) {
       stage_sla: stageSlaAlerts.length,
       task_overdue: taskOverdueAlerts.length,
       followup: followupAlerts.length,
+      contract_expiry: contractExpiryAlerts.length,
     },
     inserted: ops.toInsert.length,
     updated: ops.toUpdate.length,

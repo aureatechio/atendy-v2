@@ -86,7 +86,7 @@ export async function getClientesDados() {
       supabase
         .from("clientes_cadastro")
         .select(
-          "id,code,nomecliente,nome,nome_fantasia,whatsapp,email,instagram,company_name,company_cnpj,segment,subsegment,segmento_id,subsegmento_id,valor,deal_value,celebridade,praca,classificacao,current_stage_id,stage_entered_at,created_at,responsavel_atendimento,assigned_to,prazo_final,data_contrato_assinado,inicio_vigencia,is_archived,archived_at,link_pasta_drive,link_proposta,link_pasta_entrega",
+          "id,code,nomecliente,nome,nome_fantasia,whatsapp,email,instagram,company_name,company_cnpj,segment,subsegment,segmento_id,subsegmento_id,valor,deal_value,celebridade,praca,classificacao,current_stage_id,stage_entered_at,created_at,responsavel_atendimento,assigned_to,prazo_final,vigencia,data_contrato_assinado,inicio_vigencia,is_archived,archived_at,link_pasta_drive,link_proposta,link_pasta_entrega",
         )
         .range(from, to),
     ),
@@ -134,7 +134,7 @@ export async function getClienteQuickDetail(id: string): Promise<ClienteQuickDet
   const { data: cliente, error: clienteError } = await supabase
     .from("clientes_cadastro")
     .select(
-      "id,code,nomecliente,nome,nome_fantasia,whatsapp,email,instagram,company_name,company_cnpj,segment,subsegment,segmento_id,subsegmento_id,valor,deal_value,celebridade,praca,classificacao,current_stage_id,stage_entered_at,created_at,responsavel_atendimento,assigned_to,prazo_final,data_contrato_assinado,inicio_vigencia,is_archived,archived_at,link_pasta_drive,link_proposta,link_pasta_entrega",
+      "id,code,nomecliente,nome,nome_fantasia,whatsapp,email,instagram,company_name,company_cnpj,segment,subsegment,segmento_id,subsegmento_id,valor,deal_value,celebridade,praca,classificacao,current_stage_id,stage_entered_at,created_at,responsavel_atendimento,assigned_to,prazo_final,vigencia,data_contrato_assinado,inicio_vigencia,is_archived,archived_at,link_pasta_drive,link_proposta,link_pasta_entrega",
     )
     .eq("id", id)
     .maybeSingle();

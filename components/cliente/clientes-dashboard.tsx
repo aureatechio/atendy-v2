@@ -537,6 +537,14 @@ export function ClientesDashboard({ initialData }: Props) {
               <option value="next7">Prazo: próximos 7 dias</option>
               <option value="none">Prazo: sem prazo</option>
             </Select>
+            <Select value={state.vigencia} onChange={(event) => setFilter("vigencia", event.target.value as typeof state.vigencia)} aria-label="Vigência">
+              <option value="all">Vigência: todas</option>
+              <option value="vencida">Vigência: vencidas</option>
+              <option value="vigente">Vigência: vigentes</option>
+              <option value="next15">Vigência: próximos 15 dias</option>
+              <option value="next30">Vigência: próximos 30 dias</option>
+              <option value="none">Vigência: sem vigência</option>
+            </Select>
             <Select value={state.segmento} onChange={(event) => setFilter("segmento", event.target.value)} aria-label="Segmento">
               <option value="all">Segmento: todos</option>
               {options.segmentos.map((item) => <option key={item} value={item}>{item}</option>)}

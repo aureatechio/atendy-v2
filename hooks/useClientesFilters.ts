@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { isWithinRange, toDateRange } from "@/lib/period";
-import { normalizeText, parseDate } from "@/lib/utils";
+import { normalizeText } from "@/lib/utils";
+import { parseClienteDate } from "@/lib/clientes/format";
 import type { SortDirection } from "@/lib/types";
 import type {
   ClienteListItem,
@@ -8,6 +9,7 @@ import type {
   ClientesFiltersState,
   ClientesPeriodField,
   ClientesSortKey,
+  ClientesVigenciaFilter,
 } from "@/lib/clientes/types";
 
 interface UseClientesFiltersOptions {
@@ -30,6 +32,7 @@ const defaultState = (now = new Date()): ClientesFiltersState => ({
   responsavelId: "all",
   status: "active",
   prazo: "all",
+  vigencia: "all",
   segmento: "all",
   subsegmento: "all",
   celebridade: "all",
@@ -54,9 +57,17 @@ const periodFieldLabels: Record<ClientesPeriodField, string> = {
   inicioVigencia: "Início da vigência",
 };
 
+const vigenciaFilterLabels: Record<Exclude<ClientesVigenciaFilter, "all">, string> = {
+  vencida: "Vigência: vencida",
+  vigente: "Vigência: vigente",
+  next15: "Vigência: próximos 15 dias",
+  next30: "Vigência: próximos 30 dias",
+  none: "Vigência: sem vigência",
+};
+
 function parseItemDate(value: string | null) {
   if (!value) return null;
-  return parseDate(value) ?? new Date(value);
+  return parseClienteDate(value);
 }
 
 function dateValue(value: string | null) {
@@ -105,6 +116,25 @@ function matchesPrazo(item: ClienteListItem, prazo: ClientesFiltersState["prazo"
   if (prazo === "today") return isSameDay(parsed, now);
   if (prazo === "next7") {
     const max = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7, 23, 59, 59, 999).getTime();
+    return targetStart >= todayStart && targetStart <= max;
+  }
+  return true;
+}
+
+function matchesVigencia(item: ClienteListItem, vigencia: ClientesVigenciaFilter, now: Date) {
+  if (vigencia === "all") return true;
+  const parsed = parseItemDate(item.vigenciaFinal);
+  if (vigencia === "none") return !parsed || Number.isNaN(parsed.getTime());
+  if (!parsed || Number.isNaN(parsed.getTime())) return false;
+
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const targetStart = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()).getTime();
+
+  if (vigencia === "vencida") return targetStart < todayStart;
+  if (vigencia === "vigente") return targetStart >= todayStart;
+  if (vigencia === "next15" || vigencia === "next30") {
+    const days = vigencia === "next15" ? 15 : 30;
+    const max = new Date(now.getFullYear(), now.getMonth(), now.getDate() + days, 23, 59, 59, 999).getTime();
     return targetStart >= todayStart && targetStart <= max;
   }
   return true;
@@ -166,6 +196,7 @@ export function useClientesFilters(data: ClientesData, options: UseClientesFilte
       if (state.semResponsavel && item.responsavelId) return false;
       if (state.comReuniao && !item.nextMeetingAt) return false;
       if (!matchesPrazo(item, state.prazo, now)) return false;
+      if (!matchesVigencia(item, state.vigencia, now)) return false;
       if (valorMin !== null && Number.isFinite(valorMin) && item.valor < valorMin) return false;
       if (valorMax !== null && Number.isFinite(valorMax) && item.valor > valorMax) return false;
       if (diasMin !== null && Number.isFinite(diasMin) && Number(item.diasNaEtapa ?? 0) < diasMin) return false;
@@ -230,6 +261,7 @@ export function useClientesFilters(data: ClientesData, options: UseClientesFilte
     if (state.responsavelId !== "all") chips.push({ key: "responsavelId", label: `Responsável: ${optionLists.responsaveis.find(([id]) => id === state.responsavelId)?.[1] ?? state.responsavelId}` });
     if (state.status !== "active") chips.push({ key: "status", label: state.status === "archived" ? "Arquivados" : "Todos os status" });
     if (state.prazo !== "all") chips.push({ key: "prazo", label: "Prazo filtrado" });
+    if (state.vigencia !== "all") chips.push({ key: "vigencia", label: vigenciaFilterLabels[state.vigencia] });
     if (state.segmento !== "all") chips.push({ key: "segmento", label: `Segmento: ${state.segmento}` });
     if (state.subsegmento !== "all") chips.push({ key: "subsegmento", label: `Subsegmento: ${state.subsegmento}` });
     if (state.celebridade !== "all") chips.push({ key: "celebridade", label: `Celebridade: ${state.celebridade}` });

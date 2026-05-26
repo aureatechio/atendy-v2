@@ -28,6 +28,7 @@ const baseItem: ClienteListItem = {
   classificacao: null,
   valor: 0,
   prazoFinal: null,
+  vigenciaFinal: null,
   createdAt: null,
   stageEnteredAt: null,
   contratoAssinadoAt: null,
@@ -82,6 +83,7 @@ describe("useClientesFilters", () => {
       segmentoNome: "Alimentos",
       celebridade: "Celebridade A",
       prazoFinal: "2026-05-20",
+      vigenciaFinal: "2026-05-25",
       createdAt: "2026-05-03T12:00:00.000Z",
       stageEnteredAt: "2026-05-10T12:00:00.000Z",
       valor: 1000,
@@ -98,6 +100,7 @@ describe("useClientesFilters", () => {
       isArchived: true,
       createdAt: "2026-04-10T12:00:00.000Z",
       prazoFinal: "2026-05-10",
+      vigenciaFinal: "2026-05-15",
       valor: 300,
       lastActivityAt: "2026-05-12T12:00:00.000Z",
     },
@@ -107,6 +110,7 @@ describe("useClientesFilters", () => {
       nome: "Gamma Sem Responsável",
       createdAt: "2026-03-15T12:00:00.000Z",
       prazoFinal: "2026-05-12",
+      vigenciaFinal: "2026-06-20",
       valor: 2000,
       lastActivityAt: "2026-05-11T12:00:00.000Z",
     },
@@ -151,6 +155,79 @@ describe("useClientesFilters", () => {
     act(() => result.current.setFilter("semResponsavel", false));
     act(() => result.current.setFilter("tarefaUrgente", true));
     expect(result.current.rows.map((item) => item.id)).toEqual(["cliente-a"]);
+  });
+
+  it("filtra por vigência vencida, vigente, próximos 15/30 dias e sem vigência", () => {
+    const dataWithVigencia = makeData([
+      {
+        ...baseItem,
+        id: "vencida",
+        nome: "Vigência vencida",
+        createdAt: "2026-05-01T12:00:00.000Z",
+        vigenciaFinal: "2026-05-17",
+        lastActivityAt: "2026-05-17T12:00:00.000Z",
+      },
+      {
+        ...baseItem,
+        id: "vence-15",
+        nome: "Vence em 15",
+        createdAt: "2026-05-01T12:00:00.000Z",
+        vigenciaFinal: "2026-06-02",
+        lastActivityAt: "2026-05-17T12:00:00.000Z",
+      },
+      {
+        ...baseItem,
+        id: "vence-30",
+        nome: "Vence em 30",
+        createdAt: "2026-05-01T12:00:00.000Z",
+        vigenciaFinal: "2026-06-17",
+        lastActivityAt: "2026-05-17T12:00:00.000Z",
+      },
+      {
+        ...baseItem,
+        id: "vigente-longa",
+        nome: "Vigente longa",
+        createdAt: "2026-05-01T12:00:00.000Z",
+        vigenciaFinal: "2026-07-30",
+        lastActivityAt: "2026-05-17T12:00:00.000Z",
+      },
+      {
+        ...baseItem,
+        id: "sem-vigencia",
+        nome: "Sem vigência",
+        createdAt: "2026-05-01T12:00:00.000Z",
+        vigenciaFinal: null,
+        lastActivityAt: "2026-05-17T12:00:00.000Z",
+      },
+    ]);
+    const { result } = renderHook(() =>
+      useClientesFilters(dataWithVigencia, {
+        now: new Date("2026-05-18T12:00:00.000Z"),
+      }),
+    );
+
+    act(() => result.current.setFilter("vigencia", "vencida"));
+    expect(result.current.rows.map((item) => item.id)).toEqual(["vencida"]);
+
+    act(() => result.current.setFilter("vigencia", "vigente"));
+    expect(result.current.rows.map((item) => item.id)).toEqual([
+      "vence-15",
+      "vence-30",
+      "vigente-longa",
+    ]);
+
+    act(() => result.current.setFilter("vigencia", "next15"));
+    expect(result.current.rows.map((item) => item.id)).toEqual(["vence-15"]);
+
+    act(() => result.current.setFilter("vigencia", "next30"));
+    expect(result.current.rows.map((item) => item.id)).toEqual([
+      "vence-15",
+      "vence-30",
+    ]);
+
+    act(() => result.current.setFilter("vigencia", "none"));
+    expect(result.current.rows.map((item) => item.id)).toEqual(["sem-vigencia"]);
+    expect(result.current.activeFilterChips.some((chip) => chip.key === "vigencia")).toBe(true);
   });
 
   it("ordena por valor e expõe chips removíveis", () => {

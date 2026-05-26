@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   AlertTriangle,
   Bell,
+  CalendarClock,
   Check,
   ClipboardList,
   MessageCircleOff,
@@ -13,7 +14,12 @@ import {
 import { useAlerts, ALERT_TYPE_LABELS } from "@/hooks/useAlerts";
 import type { Alert, AlertType } from "@/lib/types";
 
-const SECTION_ORDER: AlertType[] = ["stage_sla", "task_overdue", "followup"];
+const SECTION_ORDER: AlertType[] = [
+  "stage_sla",
+  "task_overdue",
+  "followup",
+  "contract_expiry",
+];
 const ITEMS_PER_SECTION = 4;
 
 function formatRelative(deadline: string, now: number) {
@@ -32,11 +38,13 @@ function formatRelative(deadline: string, now: number) {
 function typeIcon(type: AlertType) {
   if (type === "task_overdue") return <ClipboardList className="h-3.5 w-3.5" aria-hidden />;
   if (type === "followup") return <MessageCircleOff className="h-3.5 w-3.5" aria-hidden />;
+  if (type === "contract_expiry") return <CalendarClock className="h-3.5 w-3.5" aria-hidden />;
   return <TimerReset className="h-3.5 w-3.5" aria-hidden />;
 }
 
 function rowLabel(a: Alert) {
   if (a.type === "task_overdue") return a.task?.title ?? "Tarefa sem título";
+  if (a.type === "contract_expiry") return "Vigência do contrato";
   return a.stage?.name ?? "";
 }
 

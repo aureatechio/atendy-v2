@@ -1,4 +1,4 @@
-export type AlertType = "stage_sla" | "task_overdue" | "followup";
+export type AlertType = "stage_sla" | "task_overdue" | "followup" | "contract_expiry";
 
 export interface CurrentAlert {
   type: AlertType;
@@ -17,6 +17,8 @@ export interface OpenAlert {
   stage_id: string | null;
   task_id: string | null;
   status: "warning" | "overdue";
+  entered_at: string;
+  deadline: string;
 }
 
 export interface InsertOp {
@@ -32,6 +34,8 @@ export interface InsertOp {
 export interface UpdateOp {
   id: string;
   status: "warning" | "overdue";
+  entered_at: string;
+  deadline: string;
 }
 
 export interface DiffResult {
@@ -48,6 +52,13 @@ function keyOf(
   taskId: string | null,
 ) {
   return `${type}:${clienteId}:${stageId ?? "-"}:${taskId ?? "-"}`;
+}
+
+function sameInstant(a: string, b: string) {
+  const aMs = new Date(a).getTime();
+  const bMs = new Date(b).getTime();
+  if (Number.isNaN(aMs) || Number.isNaN(bMs)) return a === b;
+  return aMs === bMs;
 }
 
 /**
@@ -87,8 +98,17 @@ export function diffAlerts(
         entered_at: current.enteredAt,
         deadline: current.deadline,
       });
-    } else if (open.status !== current.status) {
-      toUpdate.push({ id: open.id, status: current.status });
+    } else if (
+      open.status !== current.status ||
+      !sameInstant(open.entered_at, current.enteredAt) ||
+      !sameInstant(open.deadline, current.deadline)
+    ) {
+      toUpdate.push({
+        id: open.id,
+        status: current.status,
+        entered_at: current.enteredAt,
+        deadline: current.deadline,
+      });
     } else {
       toTouch.push(open.id);
     }

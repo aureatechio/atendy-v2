@@ -1,13 +1,13 @@
 ---
 name: alerts-system
-description: "Sistema unificado de alertas (SLA de etapa + task overdue + followup): cron job, evaluators puros, diff, persistência em `sla_alerts`, endpoint de leitura"
+description: "Sistema unificado de alertas (SLA de etapa + task overdue + followup + vigência contratual): cron job, evaluators puros, diff, persistência em `sla_alerts`, endpoint de leitura"
 metadata:
   node_type: memory
   type: project
   originSessionId: clientes-context-engineering-2026-05-26
 ---
 
-Sistema de alertas é um **pipeline cron → evaluators puros → diff → persistência → endpoint**. Três fontes (`stage_sla`, `task_overdue`, `followup`) reconciliadas numa única tabela `sla_alerts` via diff. UI consome via `/api/alerts` que enriquece com cliente/stage/task.
+Sistema de alertas é um **pipeline cron → evaluators puros → diff → persistência → endpoint**. Quatro fontes (`stage_sla`, `task_overdue`, `followup`, `contract_expiry`) reconciliadas numa única tabela `sla_alerts` via diff. UI consome via `/api/alerts` que enriquece com cliente/stage/task.
 
 **Why:** Centraliza notificações de "algo precisa de atenção" sem que cada módulo recalcule. Persistir os alertas (ao invés de recalcular sob demanda) garante histórico e permite snooze. Foi unificado no commit `dd7252b` ("alertas unificados SLA/tarefas/follow-up").
 
@@ -22,7 +22,8 @@ client_pipeline_stages│  ┌→ snapshot[]        │
 production_tasks  ───→│  │                    │
 clientes_cadastro ───→│  ├─ evaluateTaskOverdue→ diffAlerts ─→ ops: {insert, update, touch, resolve}
 cliente_last_interaction  │                        ↑
-                      │  └─ evaluateFollowup ───┘  │
+clientes_cadastro.vigencia│ ├─ evaluateFollowup ───┤
+                      │  └─ evaluateContractExpiry┘
                       └──────────────────────────  │
                                                    │
                             sla_alerts (resolved_at IS NULL) ──┘
@@ -32,7 +33,7 @@ Cron `/api/cron/sla-alerts` orquestra tudo. UI lê `/api/alerts`.
 
 ### Tipos (`AlertType`)
 
-`type AlertType = "stage_sla" | "task_overdue" | "followup"` — declarado em **dois lugares**:
+`type AlertType = "stage_sla" | "task_overdue" | "followup" | "contract_expiry"` — declarado em **dois lugares**:
 - [lib/types.ts:93](lib/types.ts:93) — para `Alert` (UI)
 - [lib/sla/diffAlerts.ts:1](lib/sla/diffAlerts.ts:1) — para `CurrentAlert`/`OpenAlert` (cron internals)
 
@@ -62,6 +63,15 @@ Manter sincronizados.
   - `>= warnAtPercent` → `warning`
 - 1 alerta por cliente.
 
+#### `evaluateContractExpiry` ([lib/alerts/evaluateContractExpiry.ts](lib/alerts/evaluateContractExpiry.ts))
+- Input: clientes com `id`, `vigencia`, `inicio_vigencia`, `data_contrato_assinado`.
+- Fonte: `clientes_cadastro.vigencia` (não usa `compras.fimdireitouso` na v1).
+- Inclui clientes arquivados; o cron não filtra `is_archived`.
+- Aceita `vigencia` em `YYYY-MM-DD`, `DD/MM/YYYY` e ISO datetime; interpreta a data como válida até 23:59:59.999 em `America/Sao_Paulo`.
+- Janela fixa da v1: `warning` quando vence entre hoje e 15 dias, inclusive; `overdue` quando a data final é anterior ao dia atual.
+- `enteredAt`: `inicio_vigencia` válido, senão `data_contrato_assinado` válido, senão o próprio `deadline`.
+- 1 alerta por cliente (`stageId=null`, `taskId=null`).
+
 ### Diff (`diffAlerts` em [lib/sla/diffAlerts.ts](lib/sla/diffAlerts.ts:59))
 
 Reconcilia snapshot (calculado agora) vs open alerts (DB, `resolved_at IS NULL`):
@@ -69,7 +79,7 @@ Reconcilia snapshot (calculado agora) vs open alerts (DB, `resolved_at IS NULL`)
 - Key: `${type}:${clienteId}:${stageId ?? "-"}:${taskId ?? "-"}` — alertas de tipos diferentes nunca colidem.
 - 4 operações:
   - `toInsert` — alerta novo (não existe key no DB)
-  - `toUpdate` — key existe mas status mudou (warning ↔ overdue)
+  - `toUpdate` — key existe mas status, `entered_at` ou `deadline` mudou
   - `toTouch` — key existe e status igual → só atualiza `last_seen_at` (heartbeat)
   - `toResolve` — alerta no DB sumiu do snapshot → set `resolved_at = now`
 
@@ -90,13 +100,15 @@ Reconcilia snapshot (calculado agora) vs open alerts (DB, `resolved_at IS NULL`)
 | `resolved_at` | Null = aberto. Filtro principal das queries |
 | `snoozed_until` | UI usa para esconder temporariamente — query no `/api/alerts` aceita null ou `< now` |
 
+Para `contract_expiry`, `stage_id` e `task_id` são `null`; a unicidade aberta garante no máximo 1 alerta de vigência aberto por cliente.
+
 ### Cron `/api/cron/sla-alerts` ([app/api/cron/sla-alerts/route.ts](app/api/cron/sla-alerts/route.ts))
 
 - Runtime: `nodejs`. Dynamic: `force-dynamic`.
 - **Auth**: header `Authorization: Bearer $CRON_SECRET`. Sem isso → 401. Sem env → 500.
 - Cliente: `createAdminClient()` (service role).
-- Carrega 6 datasets em paralelo (paginação 1000) — stages, stageTasks, overdueTasks, clientes, lastInteractions (view `cliente_last_interaction`), holidays.
-- Roda os 3 evaluators, concatena em `snapshot[]`.
+- Carrega 7 datasets em paralelo (paginação 1000) — stages, stageTasks, overdueTasks, clientes, lastInteractions (view `cliente_last_interaction`), holidays, contractClientes (`clientes_cadastro.vigencia`).
+- Roda os 4 evaluators, concatena em `snapshot[]`.
 - Carrega `openAlerts` (`resolved_at IS NULL`), chama `diffAlerts`.
 - Aplica `insert`, `update`, `touch` (bulk `IN`), `resolve` (bulk `IN`).
 - Retorna JSON com contadores.
@@ -150,3 +162,4 @@ export type SlaAlert = Alert;
 - ⚠️ `task_overdue` não tem warning (só overdue). Se quiser warning, precisaria estender o evaluator pra olhar `warn_at_percent` da etapa OU adicionar campo na task.
 - ⚠️ `evaluateFollowup` usa `warnAtPercent` parametrizado (default 80), **não** o da etapa. Diferente de `evaluateStageSla` que usa o da etapa.
 - ⚠️ Alerta resolvido **não é apagado** — fica com `resolved_at != null`. Limpeza/expurgo seria responsabilidade externa.
+- ⚠️ `contract_expiry` segue a semântica atual de resolver: se a vigência continuar dentro da regra, o próximo cron pode recriar o alerta. Para esconder temporariamente, usar snooze.

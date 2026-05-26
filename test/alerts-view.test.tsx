@@ -1,6 +1,6 @@
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { AlertsView } from "@/components/alerts/alerts-view";
 import type { Alert } from "@/lib/types";
 
@@ -20,7 +20,7 @@ vi.mock("@/hooks/useAlerts", async () => {
   };
 });
 
-const alerts: Alert[] = [
+const defaultAlerts: Alert[] = [
   {
     id: "alert-ana",
     type: "stage_sla",
@@ -65,11 +65,34 @@ const alerts: Alert[] = [
     },
     task: null,
   },
+  {
+    id: "alert-carla",
+    type: "contract_expiry",
+    status: "warning",
+    firedAt: "2026-05-26T11:00:00.000Z",
+    deadline: "2026-06-05T02:59:59.999Z",
+    lastSeenAt: "2026-05-26T11:00:00.000Z",
+    snoozedUntil: null,
+    cliente: {
+      id: "cliente-carla",
+      nome: "Cliente Carla",
+      responsavelId: "user-carla",
+      responsavelNome: "Carla CS",
+    },
+    stage: null,
+    task: null,
+  },
 ];
+
+let alerts: Alert[] = defaultAlerts;
 
 describe("AlertsView", () => {
   beforeAll(() => {
     vi.stubGlobal("React", React);
+  });
+
+  beforeEach(() => {
+    alerts = defaultAlerts;
   });
 
   it("mostra nomes dos responsáveis no filtro", () => {
@@ -85,6 +108,39 @@ describe("AlertsView", () => {
     expect(within(select).getByRole("option", { name: "Bruno CS" })).toHaveValue(
       "user-bruno",
     );
+    expect(within(select).getByRole("option", { name: "Carla CS" })).toHaveValue(
+      "user-carla",
+    );
     expect(within(select).queryByRole("option", { name: /user-ana/i })).not.toBeInTheDocument();
+  });
+
+  it("mostra alerta de fim de vigência no filtro, resumo e contexto da tabela", () => {
+    render(<AlertsView />);
+
+    const typeSelect = screen.getByRole("combobox", {
+      name: "Filtrar por tipo",
+    });
+
+    expect(
+      within(typeSelect).getByRole("option", { name: "Fim de vigência" }),
+    ).toHaveValue("contract_expiry");
+    expect(screen.getAllByText("Fim de vigência").length).toBeGreaterThan(0);
+    expect(screen.getByText("Vigência do contrato")).toBeInTheDocument();
+  });
+
+  it("explica quando o filtro de fim de vigência não tem alertas gerados", () => {
+    alerts = defaultAlerts.filter((alert) => alert.type !== "contract_expiry");
+
+    render(<AlertsView />);
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Filtrar por tipo" }), {
+      target: { value: "contract_expiry" },
+    });
+
+    expect(
+      screen.getByText(
+        "Nenhum alerta de vigência aberto. Se há contratos vencidos, aguarde o cron de alertas processar a nova regra.",
+      ),
+    ).toBeInTheDocument();
   });
 });

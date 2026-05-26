@@ -90,7 +90,7 @@ export interface BusinessHoliday {
 
 export type SlaStatus = "ok" | "warning" | "overdue" | "none";
 
-export type AlertType = "stage_sla" | "task_overdue" | "followup";
+export type AlertType = "stage_sla" | "task_overdue" | "followup" | "contract_expiry";
 
 export interface Alert {
   id: string;

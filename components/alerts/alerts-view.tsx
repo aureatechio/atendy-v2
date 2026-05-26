@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   BellOff,
+  CalendarClock,
   Check,
   CheckCircle2,
   ClipboardList,
@@ -60,6 +61,7 @@ function formatRelative(deadline: string, now: number) {
 function typeIcon(type: AlertType) {
   if (type === "task_overdue") return <ClipboardList className="h-3.5 w-3.5" aria-hidden />;
   if (type === "followup") return <MessageCircleOff className="h-3.5 w-3.5" aria-hidden />;
+  if (type === "contract_expiry") return <CalendarClock className="h-3.5 w-3.5" aria-hidden />;
   return <TimerReset className="h-3.5 w-3.5" aria-hidden />;
 }
 
@@ -68,6 +70,7 @@ const TYPE_OPTIONS: { value: "all" | AlertType; label: string }[] = [
   { value: "stage_sla", label: "SLA da etapa" },
   { value: "task_overdue", label: "Tarefa atrasada" },
   { value: "followup", label: "Follow-up" },
+  { value: "contract_expiry", label: "Fim de vigência" },
 ];
 
 const STATUS_OPTIONS: {
@@ -191,6 +194,7 @@ export function AlertsView() {
       stage_sla: 0,
       task_overdue: 0,
       followup: 0,
+      contract_expiry: 0,
       overdue: 0,
       warning: 0,
     };
@@ -254,6 +258,12 @@ export function AlertsView() {
     statusFilter !== "all" ||
     responsavelFilter !== "all" ||
     search.trim() !== "";
+  const emptyMessage =
+    hasActiveFilters && typeFilter === "contract_expiry" && counts.contract_expiry === 0
+      ? "Nenhum alerta de vigência aberto. Se há contratos vencidos, aguarde o cron de alertas processar a nova regra."
+      : hasActiveFilters
+        ? "Nenhum alerta com os filtros atuais."
+        : "Tudo dentro do prazo.";
 
   function clearFilters() {
     setTypeFilter("all");
@@ -300,6 +310,19 @@ export function AlertsView() {
               </div>
               <div className="alerts-card-icon alerts-card-icon--followup">
                 <MessageCircleOff className="h-4 w-4" aria-hidden />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
+            <div className="alerts-card-row">
+              <div>
+                <div className="alerts-card-label">Fim de vigência</div>
+                <div className="alerts-card-value">{counts.contract_expiry}</div>
+              </div>
+              <div className="alerts-card-icon alerts-card-icon--contract">
+                <CalendarClock className="h-4 w-4" aria-hidden />
               </div>
             </div>
           </CardContent>
@@ -431,11 +454,7 @@ export function AlertsView() {
                     style={{ color: "var(--success, #22c55e)" }}
                     aria-hidden
                   />
-                  <span>
-                    {hasActiveFilters
-                      ? "Nenhum alerta com os filtros atuais."
-                      : "Tudo dentro do prazo."}
-                  </span>
+                  <span>{emptyMessage}</span>
                 </TableCell>
               </TableRow>
             ) : (
@@ -479,6 +498,8 @@ export function AlertsView() {
                       <span className="alerts-context-text">
                         {a.type === "task_overdue"
                           ? (a.task?.title ?? "Tarefa sem título")
+                          : a.type === "contract_expiry"
+                            ? "Vigência do contrato"
                           : (a.stage?.name ?? "—")}
                       </span>
                     </TableCell>

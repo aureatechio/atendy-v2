@@ -46,6 +46,7 @@ export type ClientesColumnKey =
 
 export type ClientesStatusFilter = "active" | "archived" | "all";
 export type ClientesPrazoFilter = "all" | "overdue" | "today" | "next7" | "none";
+export type ClientesVigenciaFilter = "all" | "vencida" | "vigente" | "next15" | "next30" | "none";
 
 export interface ClienteListItem {
   id: string;
@@ -72,6 +73,7 @@ export interface ClienteListItem {
   classificacao: string | null;
   valor: number;
   prazoFinal: string | null;
+  vigenciaFinal: string | null;
   createdAt: string | null;
   stageEnteredAt: string | null;
   contratoAssinadoAt: string | null;
@@ -140,6 +142,7 @@ export interface ClientesFiltersState {
   responsavelId: string;
   status: ClientesStatusFilter;
   prazo: ClientesPrazoFilter;
+  vigencia: ClientesVigenciaFilter;
   segmento: string;
   subsegmento: string;
   celebridade: string;

@@ -58,6 +58,7 @@ export interface ClienteRawClient {
   responsavel_atendimento: string | null;
   assigned_to: string | null;
   prazo_final: string | null;
+  vigencia: string | null;
   data_contrato_assinado: string | null;
   inicio_vigencia: string | null;
   is_archived: boolean | null;
@@ -221,6 +222,7 @@ export function buildClientesData(input: BuildClientesDataInput): ClientesData {
       classificacao: client.classificacao,
       valor: numberValue(client.valor) || numberValue(client.deal_value),
       prazoFinal: client.prazo_final,
+      vigenciaFinal: client.vigencia,
       createdAt: client.created_at,
       stageEnteredAt: client.stage_entered_at,
       contratoAssinadoAt: client.data_contrato_assinado,

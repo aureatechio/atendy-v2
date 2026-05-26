@@ -1,13 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  type CollisionDetection,
   DndContext,
   DragEndEvent,
+  DragOverEvent,
   DragOverlay,
   DragStartEvent,
   PointerSensor,
   closestCenter,
+  pointerWithin,
+  rectIntersection,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -60,25 +64,150 @@ interface RootDescriptor {
 interface SubDescriptor {
   type: "sub";
   id: string;
-  parentId: string;
 }
 type DraggableId = RootDescriptor | SubDescriptor;
 
 function encodeId(desc: DraggableId): string {
-  return desc.type === "root" ? `root:${desc.id}` : `sub:${desc.parentId}:${desc.id}`;
+  return desc.type === "root" ? `root:${desc.id}` : `sub:${desc.id}`;
 }
 
 function decodeId(raw: string): DraggableId | null {
   const parts = raw.split(":");
   if (parts[0] === "root" && parts[1]) return { type: "root", id: parts[1] };
-  if (parts[0] === "sub" && parts[1] && parts[2]) {
-    return { type: "sub", parentId: parts[1], id: parts[2] };
+  if (parts[0] === "sub" && parts[1]) {
+    return { type: "sub", id: parts[1] };
   }
   return null;
 }
 
+function isPointInsideRect(
+  point: { x: number; y: number },
+  rect: { top: number; right: number; bottom: number; left: number },
+) {
+  return point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom;
+}
+
+function findStageIn(stages: StageRow[], id: string): StageRow | undefined {
+  return stages.find((stage) => stage.id === id);
+}
+
+function getSubstagesByParent(stages: StageRow[]) {
+  const map = new Map<string, StageRow[]>();
+  for (const stage of stages) {
+    if (!stage.is_active || !stage.parent_stage_id) continue;
+    const list = map.get(stage.parent_stage_id) ?? [];
+    list.push(stage);
+    map.set(stage.parent_stage_id, list);
+  }
+  for (const list of map.values()) {
+    list.sort((a, b) => a.order_index - b.order_index);
+  }
+  return map;
+}
+
+function projectSubstageMove(
+  stages: StageRow[],
+  activeId: string,
+  overDesc: DraggableId,
+  options?: { allowSameParentReorder?: boolean },
+): StageRow[] | null {
+  const activeStage = findStageIn(stages, activeId);
+  const sourceParentId = activeStage?.parent_stage_id ?? null;
+  if (!activeStage || !sourceParentId) return null;
+
+  const overStage = findStageIn(stages, overDesc.id);
+  const targetParentId = overDesc.type === "root" ? overDesc.id : (overStage?.parent_stage_id ?? null);
+  if (!targetParentId) return null;
+
+  const targetParent = findStageIn(stages, targetParentId);
+  if (!targetParent || !targetParent.is_active || targetParent.parent_stage_id) return null;
+
+  const substagesByParent = getSubstagesByParent(stages);
+  if (targetParentId === sourceParentId) {
+    if (!options?.allowSameParentReorder || overDesc.type !== "sub") return null;
+    const currentList = substagesByParent.get(sourceParentId) ?? [];
+    const oldIndex = currentList.findIndex((stage) => stage.id === activeId);
+    const newIndex = currentList.findIndex((stage) => stage.id === overDesc.id);
+    if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return null;
+
+    const reordered = arrayMove(currentList, oldIndex, newIndex);
+    const updatesById = new Map<string, Pick<StageRow, "order_index" | "parent_stage_id">>();
+    reordered.forEach((stage, index) => {
+      updatesById.set(stage.id, { order_index: index, parent_stage_id: sourceParentId });
+    });
+
+    return stages.map((stage) => {
+      const update = updatesById.get(stage.id);
+      return update ? { ...stage, ...update } : stage;
+    });
+  }
+
+  const sourceList = (substagesByParent.get(sourceParentId) ?? []).filter((stage) => stage.id !== activeId);
+  const targetListWithoutActive = (substagesByParent.get(targetParentId) ?? []).filter(
+    (stage) => stage.id !== activeId,
+  );
+  let insertIndex = targetListWithoutActive.length;
+
+  if (overDesc.type === "sub" && overDesc.id !== activeId) {
+    const overIndex = targetListWithoutActive.findIndex((stage) => stage.id === overDesc.id);
+    if (overIndex >= 0) insertIndex = overIndex;
+  }
+
+  const nextTargetList = [
+    ...targetListWithoutActive.slice(0, insertIndex),
+    activeStage,
+    ...targetListWithoutActive.slice(insertIndex),
+  ];
+
+  const updatesById = new Map<string, Pick<StageRow, "order_index" | "parent_stage_id">>();
+  sourceList.forEach((stage, index) => {
+    updatesById.set(stage.id, { order_index: index, parent_stage_id: sourceParentId });
+  });
+  nextTargetList.forEach((stage, index) => {
+    updatesById.set(stage.id, { order_index: index, parent_stage_id: targetParentId });
+  });
+
+  return stages.map((stage) => {
+    const update = updatesById.get(stage.id);
+    return update ? { ...stage, ...update } : stage;
+  });
+}
+
+function buildReorderUpdatesFromStages(stages: StageRow[]): StageReorderUpdate[] {
+  const activeStages = stages.filter((stage) => stage.is_active);
+  const roots = activeStages
+    .filter((stage) => stage.parent_stage_id === null)
+    .sort((a, b) => a.order_index - b.order_index);
+  const substagesByParent = getSubstagesByParent(activeStages);
+  const updates: StageReorderUpdate[] = [];
+
+  roots.forEach((stage, index) => {
+    updates.push({ id: stage.id, order_index: index, parent_stage_id: null });
+  });
+  for (const [parentId, list] of substagesByParent.entries()) {
+    list.forEach((stage, index) => {
+      updates.push({ id: stage.id, order_index: index, parent_stage_id: parentId });
+    });
+  }
+
+  return updates;
+}
+
+function hasPositionChanges(before: StageRow[], after: StageRow[]) {
+  const beforeById = new Map(before.map((stage) => [stage.id, stage]));
+  return after.some((stage) => {
+    const previous = beforeById.get(stage.id);
+    return (
+      previous &&
+      (previous.order_index !== stage.order_index ||
+        previous.parent_stage_id !== stage.parent_stage_id)
+    );
+  });
+}
+
 export function EtapasSettings() {
   const [stages, setStages] = useState<StageRow[]>([]);
+  const [dragPreviewStages, setDragPreviewStages] = useState<StageRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<Message>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -90,6 +219,9 @@ export function EtapasSettings() {
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
   const [pendingReorderIds, setPendingReorderIds] = useState<Set<string>>(() => new Set());
+  const dragStartStagesRef = useRef<StageRow[] | null>(null);
+
+  const displayStages = dragPreviewStages ?? stages;
 
   const loadStages = useCallback(async (options?: { showLoading?: boolean }) => {
     const showLoading = options?.showLoading ?? true;
@@ -101,6 +233,7 @@ export function EtapasSettings() {
         setMessage({ kind: "error", text: payload.error ?? "Não foi possível carregar etapas." });
         return;
       }
+      setDragPreviewStages(null);
       setStages(payload.stages);
     } finally {
       if (showLoading) setLoading(false);
@@ -112,8 +245,8 @@ export function EtapasSettings() {
   }, [loadStages]);
 
   const activeStages = useMemo(
-    () => stages.filter((s) => s.is_active),
-    [stages],
+    () => displayStages.filter((s) => s.is_active),
+    [displayStages],
   );
 
   const rootStages = useMemo(
@@ -140,10 +273,10 @@ export function EtapasSettings() {
 
   const inactiveStages = useMemo(
     () =>
-      stages
+      displayStages
         .filter((s) => !s.is_active)
         .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-    [stages],
+    [displayStages],
   );
 
   const totalSubstages = useMemo(
@@ -286,28 +419,121 @@ export function EtapasSettings() {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
-  function findStage(id: string): StageRow | undefined {
-    return stages.find((s) => s.id === id);
+  const collisionDetection = useCallback<CollisionDetection>(
+    (args) => {
+      const activeDesc = decodeId(String(args.active.id));
+      if (activeDesc?.type !== "sub") return closestCenter(args);
+
+      const substageDroppables = args.droppableContainers.filter(
+        (container) => decodeId(String(container.id))?.type === "sub",
+      );
+      if (substageDroppables.length === 0) return closestCenter(args);
+
+      const pointerSubstageCollisions = pointerWithin({
+        ...args,
+        droppableContainers: substageDroppables,
+      });
+      if (pointerSubstageCollisions.length > 0) return pointerSubstageCollisions;
+
+      if (args.pointerCoordinates) {
+        const containingRoot = args.droppableContainers.find((container) => {
+          const desc = decodeId(String(container.id));
+          if (desc?.type !== "root") return false;
+          const rect = args.droppableRects.get(container.id);
+          return rect ? isPointInsideRect(args.pointerCoordinates!, rect) : false;
+        });
+        const containingRootDesc = containingRoot ? decodeId(String(containingRoot.id)) : null;
+
+        if (containingRootDesc?.type === "root") {
+          const containedSubstageIds = new Set(
+            (substagesByParent.get(containingRootDesc.id) ?? []).map((stage) =>
+              encodeId({ type: "sub", id: stage.id }),
+            ),
+          );
+          const containedSubstageDroppables = substageDroppables.filter((container) =>
+            containedSubstageIds.has(String(container.id)),
+          );
+
+          if (containedSubstageDroppables.length > 0) {
+            return closestCenter({
+              ...args,
+              droppableContainers: containedSubstageDroppables,
+            });
+          }
+        }
+      }
+
+      const intersectingSubstages = rectIntersection({
+        ...args,
+        droppableContainers: substageDroppables,
+      });
+      if (intersectingSubstages.length > 0) return intersectingSubstages;
+
+      return closestCenter(args);
+    },
+    [substagesByParent],
+  );
+
+  function findStage(id: string, source: StageRow[] = stages): StageRow | undefined {
+    return findStageIn(source, id);
   }
 
   function handleDragStart(event: DragStartEvent) {
     if (reordering) return;
+    dragStartStagesRef.current = stages;
+    setDragPreviewStages(null);
     setActiveDragId(String(event.active.id));
+  }
+
+  function handleDragOver(event: DragOverEvent) {
+    if (reordering) return;
+    const fromDesc = decodeId(String(event.active.id));
+    const toDesc = event.over ? decodeId(String(event.over.id)) : null;
+    if (fromDesc?.type !== "sub" || !toDesc) return;
+
+    setDragPreviewStages((currentPreview) => {
+      const baseStages = currentPreview ?? dragStartStagesRef.current ?? stages;
+      return (
+        projectSubstageMove(baseStages, fromDesc.id, toDesc, {
+          allowSameParentReorder: currentPreview !== null,
+        }) ?? currentPreview
+      );
+    });
+  }
+
+  function handleDragCancel() {
+    setActiveDragId(null);
+    setDragPreviewStages(null);
+    dragStartStagesRef.current = null;
   }
 
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
+    const previewStages = dragPreviewStages;
+    const dragStartStages = dragStartStagesRef.current ?? stages;
     setActiveDragId(null);
+    setDragPreviewStages(null);
+    dragStartStagesRef.current = null;
     if (reordering) return;
     if (!over) return;
     const fromDesc = decodeId(String(active.id));
     const toDesc = decodeId(String(over.id));
     if (!fromDesc || !toDesc) return;
     if (fromDesc.type === "root" && toDesc.type === "root" && fromDesc.id === toDesc.id) return;
+
+    if (previewStages && fromDesc.type === "sub") {
+      if (!hasPositionChanges(dragStartStages, previewStages)) return;
+      await applyReorder(buildReorderUpdatesFromStages(previewStages));
+      return;
+    }
+
     if (fromDesc.type === "sub" && toDesc.type === "sub" && fromDesc.id === toDesc.id) return;
 
     const sourceStage = findStage(fromDesc.id);
     if (!sourceStage) return;
+    const sourceParentId = sourceStage.parent_stage_id;
+    const targetStage = findStage(toDesc.id);
+    const targetParentId = toDesc.type === "sub" ? (targetStage?.parent_stage_id ?? null) : null;
 
     // Bloqueia mover etapa final para subetapa
     if (sourceStage.is_final && toDesc.type !== "root") {
@@ -341,8 +567,8 @@ export function EtapasSettings() {
     }
 
     // Caso 2: reorder dentro de uma mesma mãe (subs)
-    if (fromDesc.type === "sub" && toDesc.type === "sub" && fromDesc.parentId === toDesc.parentId) {
-      const subs = substagesByParent.get(fromDesc.parentId) ?? [];
+    if (fromDesc.type === "sub" && toDesc.type === "sub" && sourceParentId === targetParentId && sourceParentId) {
+      const subs = substagesByParent.get(sourceParentId) ?? [];
       const oldIndex = subs.findIndex((s) => s.id === fromDesc.id);
       const newIndex = subs.findIndex((s) => s.id === toDesc.id);
       if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
@@ -350,7 +576,7 @@ export function EtapasSettings() {
       const updates: StageReorderUpdate[] = reordered.map((s, idx) => ({
         id: s.id,
         order_index: idx,
-        parent_stage_id: fromDesc.parentId,
+        parent_stage_id: sourceParentId,
       }));
       await applyReorder(updates);
       return;
@@ -367,8 +593,9 @@ export function EtapasSettings() {
       newParentId = toDesc.id;
       insertIndex = (substagesByParent.get(toDesc.id) ?? []).length;
     } else if (toDesc.type === "sub") {
-      newParentId = toDesc.parentId;
-      const subs = substagesByParent.get(toDesc.parentId) ?? [];
+      newParentId = targetParentId;
+      if (!newParentId) return;
+      const subs = substagesByParent.get(newParentId) ?? [];
       insertIndex = subs.findIndex((s) => s.id === toDesc.id);
       if (insertIndex < 0) insertIndex = subs.length;
     }
@@ -418,9 +645,8 @@ export function EtapasSettings() {
     await applyReorder(updates);
   }
 
-  const draggedStage = activeDragId
-    ? findStage(decodeId(activeDragId)?.id ?? "")
-    : undefined;
+  const draggedDescriptor = activeDragId ? decodeId(activeDragId) : null;
+  const draggedStage = draggedDescriptor ? findStage(draggedDescriptor.id) : undefined;
 
   return (
     <div className="settings-section">
@@ -486,9 +712,11 @@ export function EtapasSettings() {
         ) : (
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCenter}
+            collisionDetection={collisionDetection}
             onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
           >
             <SortableContext
               items={rootStages.map((s) => encodeId({ type: "root", id: s.id }))}
@@ -518,16 +746,10 @@ export function EtapasSettings() {
               </ol>
             </SortableContext>
             <DragOverlay>
-              {draggedStage ? (
-                <div className="settings-stage settings-stage--overlay">
-                  <GripVertical className="settings-stage-grip" />
-                  <span
-                    className="settings-stage-color"
-                    style={{ background: draggedStage.color }}
-                    aria-hidden
-                  />
-                  <strong>{draggedStage.name}</strong>
-                </div>
+              {draggedStage && draggedDescriptor?.type === "sub" ? (
+                <SubStageDragOverlay stage={draggedStage} />
+              ) : draggedStage ? (
+                <RootStageDragOverlay stage={draggedStage} />
               ) : null}
             </DragOverlay>
           </DndContext>
@@ -627,6 +849,41 @@ function SummaryCard({
   );
 }
 
+function RootStageDragOverlay({ stage }: { stage: StageRow }) {
+  return (
+    <div className="settings-stage settings-stage--overlay">
+      <GripVertical className="settings-stage-grip" />
+      <span
+        className="settings-stage-color"
+        style={{ background: stage.color }}
+        aria-hidden
+      />
+      <strong>{stage.name}</strong>
+    </div>
+  );
+}
+
+function SubStageDragOverlay({ stage }: { stage: StageRow }) {
+  return (
+    <div className="settings-substage settings-substage--overlay">
+      <GripVertical className="settings-substage-grip" />
+      <span className="settings-substage-prefix" aria-hidden>
+        <CornerDownRight />
+      </span>
+      <span className="settings-stage-color" aria-hidden style={{ background: stage.color }} />
+      <span className="settings-substage-name">{stage.name}</span>
+      <code className="settings-substage-slug">{stage.slug}</code>
+      {stage.sla_amount ? (
+        <span className="settings-substage-sla">
+          <Timer /> {stage.sla_amount} {slaUnitShort[stage.sla_unit]}
+        </span>
+      ) : (
+        <span className="settings-substage-sla settings-substage-sla--muted">SLA herdado</span>
+      )}
+    </div>
+  );
+}
+
 interface RootStageCardProps {
   stage: StageRow;
   index: number;
@@ -657,7 +914,15 @@ function RootStageCard({
   savingStageIds,
 }: RootStageCardProps) {
   const id = encodeId({ type: "root", id: stage.id });
-  const { setNodeRef, transform, transition, isDragging, attributes, listeners } = useSortable({
+  const {
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+    attributes,
+    listeners,
+  } = useSortable({
     id,
     disabled: isReordering,
   });
@@ -674,10 +939,11 @@ function RootStageCard({
     <li
       ref={setNodeRef}
       style={style}
-      className={`settings-stage panel-card${isSaving ? " is-saving" : ""}`}
+      className={`settings-stage panel-card${isSaving ? " is-saving" : ""}${isDragging ? " is-dragging" : ""}`}
     >
       <header className="settings-stage-header">
         <button
+          ref={setActivatorNodeRef}
           type="button"
           className="settings-stage-grip"
           aria-label="Arrastar"
@@ -772,22 +1038,23 @@ function RootStageCard({
           ) : (
             <SortableContext
               items={substages.map((s) =>
-                encodeId({ type: "sub", id: s.id, parentId: stage.id }),
+                encodeId({ type: "sub", id: s.id }),
               )}
               strategy={verticalListSortingStrategy}
             >
-              {substages.map((sub, subIndex) => (
-                <SubStageRow
-                  key={sub.id}
-                  parentId={stage.id}
-                  stage={sub}
-                  index={subIndex}
-                  onEdit={() => onEditSub(sub)}
-                  onDeactivate={() => onDeactivateSub(sub)}
-                  isReordering={isReordering}
-                  isSaving={savingStageIds.has(sub.id)}
-                />
-              ))}
+              <ol className="settings-substage-items">
+                {substages.map((sub, subIndex) => (
+                  <SubStageRow
+                    key={sub.id}
+                    stage={sub}
+                    index={subIndex}
+                    onEdit={() => onEditSub(sub)}
+                    onDeactivate={() => onDeactivateSub(sub)}
+                    isReordering={isReordering}
+                    isSaving={savingStageIds.has(sub.id)}
+                  />
+                ))}
+              </ol>
             </SortableContext>
           )}
         </div>
@@ -798,7 +1065,6 @@ function RootStageCard({
 
 interface SubStageRowProps {
   stage: StageRow;
-  parentId: string;
   index: number;
   onEdit: () => void;
   onDeactivate: () => void;
@@ -808,15 +1074,22 @@ interface SubStageRowProps {
 
 function SubStageRow({
   stage,
-  parentId,
   index,
   onEdit,
   onDeactivate,
   isReordering,
   isSaving,
 }: SubStageRowProps) {
-  const id = encodeId({ type: "sub", id: stage.id, parentId });
-  const { setNodeRef, transform, transition, isDragging, attributes, listeners } = useSortable({
+  const id = encodeId({ type: "sub", id: stage.id });
+  const {
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+    attributes,
+    listeners,
+  } = useSortable({
     id,
     disabled: isReordering,
   });
@@ -828,12 +1101,13 @@ function SubStageRow({
   };
 
   return (
-    <div
+    <li
       ref={setNodeRef}
       style={style}
-      className={`settings-substage${isSaving ? " is-saving" : ""}`}
+      className={`settings-substage${isSaving ? " is-saving" : ""}${isDragging ? " is-dragging" : ""}`}
     >
       <button
+        ref={setActivatorNodeRef}
         type="button"
         className="settings-substage-grip"
         aria-label="Arrastar"
@@ -871,6 +1145,6 @@ function SubStageRow({
           <Trash2 />
         </Button>
       </div>
-    </div>
+    </li>
   );
 }

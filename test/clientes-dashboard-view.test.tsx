@@ -37,6 +37,7 @@ const baseItem: ClienteListItem = {
   classificacao: null,
   valor: 0,
   prazoFinal: null,
+  vigenciaFinal: null,
   createdAt: "2026-05-01T12:00:00.000Z",
   stageEnteredAt: null,
   contratoAssinadoAt: null,

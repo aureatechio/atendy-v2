@@ -18,6 +18,8 @@ const baseOpen: OpenAlert = {
   stage_id: "s1",
   task_id: null,
   status: "overdue",
+  entered_at: "2026-05-10T15:00:00.000Z",
+  deadline: "2026-05-11T15:00:00.000Z",
 };
 
 describe("diffAlerts", () => {
@@ -32,7 +34,31 @@ describe("diffAlerts", () => {
 
   it("updates status when warning escalates to overdue", () => {
     const res = diffAlerts([baseSnap], [{ ...baseOpen, status: "warning" }]);
-    expect(res.toUpdate).toEqual([{ id: "alert-1", status: "overdue" }]);
+    expect(res.toUpdate).toEqual([
+      {
+        id: "alert-1",
+        status: "overdue",
+        entered_at: "2026-05-10T12:00:00-03:00",
+        deadline: "2026-05-11T12:00:00-03:00",
+      },
+    ]);
+  });
+
+  it("updates dates when an open alert keeps the same key but the deadline changes", () => {
+    const res = diffAlerts(
+      [{ ...baseSnap, deadline: "2026-05-12T12:00:00-03:00" }],
+      [baseOpen],
+    );
+
+    expect(res.toUpdate).toEqual([
+      {
+        id: "alert-1",
+        status: "overdue",
+        entered_at: "2026-05-10T12:00:00-03:00",
+        deadline: "2026-05-12T12:00:00-03:00",
+      },
+    ]);
+    expect(res.toTouch).toEqual([]);
   });
 
   it("resolves open alerts no longer in snapshot", () => {
@@ -78,6 +104,8 @@ describe("diffAlerts", () => {
       stage_id: null,
       task_id: "task-A",
       status: "overdue",
+      entered_at: "2026-01-01T00:00:00Z",
+      deadline: "2026-01-02T00:00:00Z",
     };
     const res = diffAlerts([t1, t2], [open]);
     expect(res.toTouch).toEqual(["alert-T"]);
@@ -100,6 +128,8 @@ describe("diffAlerts", () => {
         stage_id: "s3",
         task_id: null,
         status: "warning",
+        entered_at: "2026-05-10T12:00:00-03:00",
+        deadline: "2026-05-11T12:00:00-03:00",
       },
       {
         id: "alert-4",
@@ -108,11 +138,20 @@ describe("diffAlerts", () => {
         stage_id: "s4",
         task_id: null,
         status: "warning",
+        entered_at: "2026-05-10T12:00:00-03:00",
+        deadline: "2026-05-11T12:00:00-03:00",
       },
     ];
     const res = diffAlerts(snap, open);
     expect(res.toInsert.map((i) => i.cliente_id)).toEqual(["c2"]);
-    expect(res.toUpdate).toEqual([{ id: "alert-3", status: "overdue" }]);
+    expect(res.toUpdate).toEqual([
+      {
+        id: "alert-3",
+        status: "overdue",
+        entered_at: "2026-05-10T12:00:00-03:00",
+        deadline: "2026-05-11T12:00:00-03:00",
+      },
+    ]);
     expect(res.toResolve).toEqual(["alert-4"]);
     expect(res.toTouch).toEqual(["alert-1"]);
   });

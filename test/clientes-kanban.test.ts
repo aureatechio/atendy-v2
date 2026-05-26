@@ -37,6 +37,7 @@ const baseItem: ClienteListItem = {
   classificacao: null,
   valor: 0,
   prazoFinal: null,
+  vigenciaFinal: null,
   createdAt: null,
   stageEnteredAt: null,
   contratoAssinadoAt: null,
