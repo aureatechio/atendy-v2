@@ -11,7 +11,6 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
-  UserRound,
   Users,
   Workflow,
 } from "lucide-react";
@@ -30,7 +29,8 @@ type SiteRoute =
   | "/alertas"
   | "/admin/users"
   | "/configuracoes"
-  | "/cs";
+  | "/cs"
+  | "/perfil";
 
 type NavLink = {
   href: SiteRoute;
@@ -67,6 +67,13 @@ function getPageMeta(pathname: string) {
     return {
       title: "Configurações",
       trail: "Configurações",
+    };
+  }
+
+  if (pathname.startsWith("/perfil")) {
+    return {
+      title: "Meu perfil",
+      trail: "Perfil",
     };
   }
 
@@ -290,21 +297,16 @@ export function SiteShell({
           </nav>
 
           <div className="app-sidebar-footer">
-            <div className="app-sidebar-user" role="presentation">
-              <div className="app-sidebar-user-avatar">
-                {(profile?.full_name ?? user?.email ?? "AT")
-                  .split(" ")
-                  .slice(0, 2)
-                  .map((part) => part[0])
-                  .join("")
-                  .toUpperCase()}
-              </div>
-              <div className="app-sidebar-user-info min-w-0">
-                <p className="app-sidebar-user-name">{profile?.full_name ?? "Usuario Atendy"}</p>
-                <p className="app-sidebar-user-email">{user?.email}</p>
-              </div>
-              <UserRound className="app-sidebar-link-icon" aria-hidden />
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSignOut}
+              className="app-sidebar-signout"
+              title="Sair da conta"
+            >
+              <LogOut />
+              <span>Sair</span>
+            </Button>
           </div>
         </aside>
 
@@ -320,15 +322,29 @@ export function SiteShell({
             </div>
             <div className="app-header-actions">
               <SlaBell />
-              <span className="app-role-pill">{profile?.role}</span>
-              <Button variant="ghost" size="sm" onClick={handleSignOut}>
-                <LogOut />
-                Sair
-              </Button>
+              <Link href="/perfil" className="app-header-user" title="Meu perfil">
+                <div className="app-header-user-avatar">
+                  {profile?.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profile.avatar_url} alt="" />
+                  ) : (
+                    (profile?.full_name ?? user?.email ?? "AT")
+                      .split(" ")
+                      .slice(0, 2)
+                      .map((part) => part[0])
+                      .join("")
+                      .toUpperCase()
+                  )}
+                </div>
+                <div className="app-header-user-info">
+                  <span className="app-header-user-name">{profile?.full_name ?? "Usuário"}</span>
+                  <span className="app-header-user-role">{profile?.role}</span>
+                </div>
+              </Link>
             </div>
           </header>
 
-          <section className={`app-content${pathname?.startsWith("/funil") || pathname?.startsWith("/clientes") || pathname?.startsWith("/configuracoes") || pathname?.startsWith("/cs") || pathname?.startsWith("/alertas") ? " app-content--wide" : ""}`}>{children}</section>
+          <section className={`app-content${pathname?.startsWith("/funil") || pathname?.startsWith("/clientes") || pathname?.startsWith("/configuracoes") || pathname?.startsWith("/cs") || pathname?.startsWith("/alertas") || pathname?.startsWith("/perfil") ? " app-content--wide" : ""}`}>{children}</section>
         </main>
       </div>
     </div>
