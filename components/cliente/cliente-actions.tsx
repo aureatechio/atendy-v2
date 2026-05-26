@@ -7,6 +7,7 @@ import { addComment, changeStage, setArchived } from "@/app/(protected)/clientes
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { buildWhatsappHref } from "@/lib/clientes/format";
+import { FaWhatsapp } from "react-icons/fa";
 import type { ClienteStage } from "@/lib/api/cliente";
 
 interface Props {
@@ -60,8 +61,9 @@ export function ClienteActions({ clienteId, whatsapp, currentStageId, stages, is
             href={wa}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="Abrir WhatsApp"
           >
-            <MessageCircle className="h-4 w-4" /> WhatsApp
+            <FaWhatsapp className="h-4 w-4" />
           </a>
         ) : (
           <Button variant="outline" size="sm" disabled>
@@ -84,9 +86,9 @@ export function ClienteActions({ clienteId, whatsapp, currentStageId, stages, is
           </Select>
         </label>
 
-        <Button
-          variant={isArchived ? "outline" : "destructive"}
-          size="sm"
+        <button
+          type="button"
+          className="cliente-actions-archive"
           onClick={onToggleArchive}
           disabled={pending}
         >
@@ -98,7 +100,7 @@ export function ClienteActions({ clienteId, whatsapp, currentStageId, stages, is
             <Archive className="h-4 w-4" />
           )}
           {isArchived ? "Restaurar" : "Arquivar"}
-        </Button>
+        </button>
       </div>
       {error ? <p className="cliente-actions-error">{error}</p> : null}
     </div>

@@ -10,6 +10,10 @@ out/
 *.tsbuildinfo
 coverage/
 
+# Local automation and browser artifacts
+.playwright-mcp/
+.superpowers/
+
 # Local environment and MCP secrets
 .env
 .env*.local

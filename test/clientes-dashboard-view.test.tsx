@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClientesDashboard } from "@/components/cliente/clientes-dashboard";
 import type { ClienteListItem, ClientesData } from "@/lib/clientes/types";
 
@@ -77,7 +77,19 @@ describe("ClientesDashboard view switch", () => {
     vi.stubGlobal("React", React);
   });
 
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("abre o Kanban por padrao quando nao ha preferencia salva", () => {
+    render(<ClientesDashboard initialData={data} />);
+
+    expect(screen.getByLabelText("Funil kanban de clientes")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Kanban/i })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("alterna para Kanban reaproveitando a busca filtrada", () => {
+    window.localStorage.setItem("atendy:clientes:view", "list");
     render(<ClientesDashboard initialData={data} />);
 
     fireEvent.change(screen.getByRole("textbox", { name: "Busca" }), { target: { value: "acme" } });

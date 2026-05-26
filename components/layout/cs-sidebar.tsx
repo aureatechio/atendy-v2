@@ -2,17 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronsLeft, ChevronsRight, LayoutDashboard, ShoppingBag, UsersRound } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, LayoutDashboard, MoveRight, ShoppingBag, UsersRound } from "lucide-react";
 import { useState } from "react";
 
 type CsNavLink = {
-  href: "/cs" | "/cs/forca-tarefa" | "/cs/compras-pagas";
+  href: "/cs" | "/cs/forca-tarefa" | "/cs/compras-pagas" | "/cs/movimentacoes";
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 };
 
 const csLinks: CsNavLink[] = [
   { href: "/cs", label: "Visão geral", icon: LayoutDashboard },
+  { href: "/cs/movimentacoes", label: "Movimentações", icon: MoveRight },
   { href: "/cs/forca-tarefa", label: "Força-Tarefa", icon: UsersRound },
   { href: "/cs/compras-pagas", label: "Compras Pagas", icon: ShoppingBag },
 ];

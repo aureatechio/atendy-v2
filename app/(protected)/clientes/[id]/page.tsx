@@ -30,8 +30,10 @@ import {
 } from "@/lib/api/cliente";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { buildWhatsappHref, formatCnpj, formatPhone } from "@/lib/clientes/format";
 import { ClienteActions, ClienteAddComment } from "@/components/cliente/cliente-actions";
 import { htmlToPlainText } from "@/lib/utils";
+import { WhatsAppCopyButton } from "@/components/cliente/whatsapp-copy-button";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +79,13 @@ function daysSince(value: string | null) {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return null;
   return Math.max(Math.round((Date.now() - d.getTime()) / 86_400_000), 0);
+}
+
+function daysUntil(value: string | null) {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.ceil((d.getTime() - Date.now()) / 86_400_000);
 }
 
 function profileName(profiles: Record<string, ClienteProfile>, id: string | null) {
@@ -214,17 +223,33 @@ function KpiTile({
 }
 
 function InfoCard({ cliente }: { cliente: ClienteFull }) {
+  const vigenciaDias = daysUntil(cliente.vigencia);
+  const vigenciaFinal =
+    cliente.vigencia == null
+      ? null
+      : `${fmtDate(cliente.vigencia)} · ${
+          vigenciaDias === null
+            ? "Sem data final de vigência"
+              : vigenciaDias > 0
+                ? `Faltam ${vigenciaDias} dias`
+                : "Vigência vencida"
+        }`;
+
+  const whatsappHref = buildWhatsappHref(cliente.whatsapp);
+  const whatsappValue = formatPhone(cliente.whatsapp);
+  const whatsappCopyValue = whatsappValue || cliente.whatsapp || "";
+
   const items: { label: string; value: string | null; href?: string; icon?: React.ComponentType<{ className?: string }> }[] = [
-    { label: "WhatsApp", value: cliente.whatsapp, icon: MessageSquare },
+    { label: "WhatsApp", value: whatsappValue || "—", href: whatsappHref || undefined, icon: MessageSquare },
     { label: "E-mail", value: cliente.email, icon: Mail, href: cliente.email ? `mailto:${cliente.email}` : undefined },
     { label: "Instagram", value: cliente.instagram, icon: Tag },
     { label: "Razão social", value: cliente.company_name },
-    { label: "CNPJ", value: cliente.company_cnpj },
+    { label: "CNPJ", value: formatCnpj(cliente.company_cnpj) || "—" },
     { label: "Segmento", value: cliente.segment },
     { label: "Subsegmento", value: cliente.subsegment },
     { label: "Praça", value: cliente.praca, icon: MapPin },
     { label: "Início vigência", value: cliente.inicio_vigencia ? fmtDate(cliente.inicio_vigencia) : null },
-    { label: "Vigência", value: cliente.vigencia ? fmtDate(cliente.vigencia) : null },
+    { label: "Vigência final", value: vigenciaFinal },
     { label: "Contrato assinado em", value: cliente.data_contrato_assinado ? fmtDate(cliente.data_contrato_assinado) : null },
     {
       label: "Drive",
@@ -254,13 +279,19 @@ function InfoCard({ cliente }: { cliente: ClienteFull }) {
               <dt>{item.label}</dt>
               <dd>
                 {item.href ? (
-                  <a
-                    href={item.href}
-                    target={item.href.startsWith("http") ? "_blank" : undefined}
-                    rel="noopener noreferrer"
-                  >
-                    {item.value}
-                  </a>
+                  <div className="cliente-info-value-line">
+                    <a
+                      href={item.href}
+                      target={item.href.startsWith("http") ? "_blank" : undefined}
+                      rel="noopener noreferrer"
+                      title={item.value ?? undefined}
+                    >
+                      {item.value}
+                    </a>
+                    {item.label === "WhatsApp" && whatsappCopyValue ? (
+                      <WhatsAppCopyButton value={whatsappCopyValue} />
+                    ) : null}
+                  </div>
                 ) : (
                   item.value
                 )}
@@ -274,7 +305,7 @@ function InfoCard({ cliente }: { cliente: ClienteFull }) {
         {cliente.briefing ? (
           <div className="cliente-text-block">
             <strong>Briefing</strong>
-            <p>{cliente.briefing}</p>
+            <p>{htmlToPlainText(cliente.briefing)}</p>
           </div>
         ) : null}
         {cliente.notes ? (

@@ -206,11 +206,11 @@ function renderCell(column: ClientesColumnKey, row: ClienteListItem, openDrawer:
 }
 
 function getStoredViewMode(): ClientesViewMode {
-  if (typeof window === "undefined") return "list";
+  if (typeof window === "undefined") return "kanban";
   try {
-    return window.localStorage.getItem(VIEW_STORAGE_KEY) === "kanban" ? "kanban" : "list";
+    return window.localStorage.getItem(VIEW_STORAGE_KEY) === "list" ? "list" : "kanban";
   } catch {
-    return "list";
+    return "kanban";
   }
 }
 

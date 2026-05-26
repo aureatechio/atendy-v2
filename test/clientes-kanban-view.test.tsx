@@ -108,7 +108,7 @@ describe("ClientesKanbanView", () => {
     );
 
     const novo = screen.getByRole("list", { name: /Novo/i });
-    expect(within(novo).getByText("1 cliente")).toBeInTheDocument();
+    expect(within(novo).getByLabelText("1 cliente")).toBeInTheDocument();
     expect(within(novo).getAllByText("R$ 1.200,00")).toHaveLength(2);
     expect(within(novo).getByText("Acme Brasil")).toBeInTheDocument();
     expect(within(novo).getByText("CLI-001 · Acme Ltda")).toBeInTheDocument();
@@ -116,6 +116,9 @@ describe("ClientesKanbanView", () => {
     expect(within(novo).getByText("4d na etapa")).toBeInTheDocument();
     expect(within(novo).getByText("2 tarefas")).toBeInTheDocument();
     expect(within(novo).getByText("1 urgente")).toBeInTheDocument();
+    expect(within(novo).getByTitle("Tempo na etapa")).toHaveClass("ds-badge-success");
+    expect(within(novo).getByTitle("Prazo")).toHaveClass("ds-badge-warning");
+    expect(within(novo).getByTitle("Tarefas abertas")).toHaveClass("ds-badge-danger");
   });
 
   it("chama onMoveCliente quando um card e solto em outra etapa", () => {

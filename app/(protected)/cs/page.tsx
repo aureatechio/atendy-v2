@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { UsersRound, BarChart3, ShoppingBag } from "lucide-react";
+import { UsersRound, BarChart3, ShoppingBag, MoveRight } from "lucide-react";
 
 export default function CsHomePage() {
   return (
@@ -10,6 +10,16 @@ export default function CsHomePage() {
       </header>
 
       <div className="cs-home-grid">
+        <Link href="/cs/movimentacoes" className="cs-home-card">
+          <div className="cs-home-card-icon">
+            <MoveRight />
+          </div>
+          <div>
+            <strong>Movimentações</strong>
+            <p>Monitorar mudanças de etapa por período, com fluxo de origem e destino por cliente.</p>
+          </div>
+        </Link>
+
         <Link href="/cs/forca-tarefa" className="cs-home-card">
           <div className="cs-home-card-icon">
             <UsersRound />

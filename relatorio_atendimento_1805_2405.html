@@ -1,0 +1,1056 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>Relatório de Atendimento (18/05 a 24/05)</title>
+  <style>
+    :root {
+      --bg: #f6f7f2;
+      --surface: #ffffff;
+      --surface-alt: #f0f4ef;
+      --ink: #1d2a27;
+      --muted: #64736f;
+      --line: #dce4dc;
+      --line-strong: #b6c5bb;
+      --brand: #136f63;
+      --brand-dark: #0f4e49;
+      --accent: #c35d2e;
+      --accent-soft: #f3dfd1;
+      --warning: #b9831f;
+      --shadow: 0 14px 36px rgba(30, 42, 39, 0.1);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(19,111,99,0.06) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(19,111,99,0.05) 1px, transparent 1px),
+        var(--bg);
+      background-size: 34px 34px;
+      font-family: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+      padding: 24px;
+    }
+
+    .shell {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+      animation: reveal 450ms ease;
+    }
+
+    @keyframes reveal {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #163b35 0%, #176c60 62%, #c35d2e 100%);
+      border: 1px solid rgba(255,255,255,0.18);
+      box-shadow: var(--shadow);
+      border-radius: 8px;
+      color: white;
+      padding: 22px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -10% -42% auto;
+      width: 420px;
+      aspect-ratio: 1;
+      border: 1px solid rgba(255,255,255,0.22);
+      transform: rotate(24deg);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, 1.35fr) minmax(280px, 0.85fr);
+      gap: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.82;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 780px;
+      font-size: clamp(1.85rem, 3vw, 3.05rem);
+      line-height: 1.02;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      color: rgba(255,255,255,0.82);
+      font-size: 0.98rem;
+      margin-top: 12px;
+      max-width: 760px;
+    }
+
+    .hero-note {
+      align-self: end;
+      border-left: 1px solid rgba(255,255,255,0.28);
+      padding-left: 18px;
+      color: rgba(255,255,255,0.84);
+      font-size: 0.92rem;
+      line-height: 1.55;
+    }
+
+    .panel {
+      background: var(--surface);
+      border-radius: 8px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 1.02rem;
+      letter-spacing: 0;
+    }
+
+    .section-head span {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, #ffffff, #f8faf7);
+      border-radius: 8px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      transition: transform 160ms ease;
+      min-height: 104px;
+    }
+
+    .card:hover { transform: translateY(-2px); }
+    .kpi-label { color: var(--muted); font-size: 0.78rem; margin-bottom: 8px; text-transform: uppercase; font-weight: 800; }
+    .kpi-value { font-size: 2.15rem; font-weight: 800; line-height: 1; }
+    .kpi-help { color: var(--muted); font-size: 0.82rem; margin-top: 9px; }
+
+    .workbench {
+      display: grid;
+      grid-template-columns: 340px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .workbench > main { min-width: 0; }
+
+    .filters {
+      display: grid;
+      gap: 12px;
+      position: sticky;
+      top: 16px;
+      min-width: 0;
+    }
+
+    .group { display: grid; gap: 7px; min-width: 0; }
+    .group > label { font-size: 0.82rem; font-weight: 800; color: var(--ink); }
+
+    .filter-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .filter-toggle {
+      border: 0;
+      background: transparent;
+      color: var(--brand-dark);
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 800;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      width: auto;
+      min-height: auto;
+    }
+
+    .filter-toggle:hover { opacity: 0.72; }
+
+    .date-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .multi {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfa;
+      padding: 8px;
+      max-height: 170px;
+      overflow: auto;
+      display: grid;
+      gap: 3px;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .multi label {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 8px;
+      align-items: center;
+      padding: 5px 4px;
+      border-radius: 6px;
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: #2c3936;
+    }
+
+    .multi label:hover { background: var(--surface-alt); }
+
+    input[type="checkbox"] { accent-color: var(--brand); }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .charts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .chart-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: #fbfcfa;
+      min-height: 310px;
+    }
+
+    .chart-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .row {
+      display: grid;
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+
+    .bar {
+      border-radius: 999px;
+      height: 9px;
+      background: #e6ece6;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bar > span {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--brand), var(--accent));
+      width: 0;
+      transition: width 300ms ease;
+    }
+
+    .bar-value { color: var(--muted); font-size: 0.82rem; text-align: right; font-weight: 800; }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+    }
+
+    .day {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfcfa;
+      min-height: 118px;
+      display: grid;
+      align-content: end;
+      gap: 8px;
+    }
+
+    .day strong { font-size: 1.4rem; line-height: 1; }
+    .day span { color: var(--muted); font-size: 0.78rem; font-weight: 800; text-transform: uppercase; }
+    .day-bar { height: 48px; display: flex; align-items: flex-end; }
+    .day-bar i { display: block; width: 100%; min-height: 2px; background: linear-gradient(180deg, var(--accent), var(--brand)); border-radius: 4px 4px 0 0; }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 800px; }
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #eef3ee;
+      color: var(--ink);
+      z-index: 2;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 11px 10px;
+      border-bottom: 1px solid var(--line);
+      font-size: 0.9rem;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    tbody tr:hover { background: #f8faf7; }
+    tfoot td { background: #f3f6f2; }
+
+    .pill {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      background: #eaf2ee;
+      color: #173b35;
+    }
+
+    .stage-pill { background: var(--accent-soft); color: #713316; }
+
+    .muted { color: var(--muted); }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      flex-wrap: wrap;
+    }
+
+    input, button {
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.9rem;
+      background: #fff;
+      color: var(--ink);
+      width: 100%;
+      min-width: 0;
+    }
+
+    button {
+      border-color: var(--brand);
+      background: var(--brand);
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 120ms ease;
+      min-height: 38px;
+    }
+
+    button:hover { opacity: 0.9; }
+    button.secondary { background: #ffffff; color: var(--brand-dark); border-color: var(--line-strong); }
+
+    .insight {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfa;
+      font-size: 0.9rem;
+    }
+
+    .mark {
+      width: 10px;
+      height: 10px;
+      margin-top: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    @media (max-width: 980px) {
+      .hero-grid, .workbench { grid-template-columns: 1fr; }
+      .filters { position: static; }
+      .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .timeline { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 12px; }
+      .panel, .hero { padding: 12px; }
+      .summary, .date-grid, .timeline { grid-template-columns: 1fr; }
+      h1 { font-size: 1.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="hero">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow">Atendy · Atendimento</div>
+          <h1>Movimentação operacional de etapas</h1>
+          <div class="subtitle">Leitura executiva do período 18/05/2026 a 24/05/2026, com filtros por data, etapas e atendentes.</div>
+        </div>
+        <div class="hero-note">
+          <strong>Principal leitura:</strong> apos remover a operacao de bulk/reversao do Anderson, o periodo fica com 19 mudancas reais em 18 clientes.
+        </div>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="section-head">
+      <div>
+          <h2>Resumo do recorte</h2>
+          <span>Os indicadores respondem aos filtros abaixo.</span>
+      </div>
+        <span>Fonte: client_stage_history</span>
+      </div>
+      <div class="summary">
+        <div class="card">
+          <div class="kpi-label">Mudanças de etapa</div>
+          <div id="kpiTotalChanges" class="kpi-value">—</div>
+          <div class="kpi-help">Volume no filtro ativo</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Clientes movimentados</div>
+          <div id="kpiTotalClients" class="kpi-value">—</div>
+          <div id="kpiClientsHelp" class="kpi-help">Clientes distintos no período</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Dias com movimentação</div>
+          <div id="kpiActiveDays" class="kpi-value">—</div>
+          <div class="kpi-help">Dias com registro no recorte</div>
+        </div>
+        <div class="card">
+          <div class="kpi-label">Linhas consolidadas</div>
+          <div id="kpiFiltered" class="kpi-value">—</div>
+          <div class="kpi-help">Agrupadas por data, etapa e atendente</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="workbench">
+      <aside class="panel filters">
+        <div class="section-head">
+          <div>
+            <h2>Filtros</h2>
+            <span>Combine recortes para apresentar a operação.</span>
+          </div>
+        </div>
+        <div class="group">
+          <label>Período</label>
+          <div class="date-grid">
+            <input id="startDate" type="date" />
+            <input id="endDate" type="date" />
+          </div>
+        </div>
+        <div class="group">
+          <div class="filter-head">
+            <label>Atendente (alterou, destino ou responsável atual)</label>
+            <button class="filter-toggle" type="button" data-target="attendantFilter">Nenhum</button>
+          </div>
+          <div id="attendantFilter" class="multi"></div>
+        </div>
+        <div class="group">
+          <div class="filter-head">
+            <label>Etapa de origem</label>
+            <button class="filter-toggle" type="button" data-target="fromStageFilter">Nenhum</button>
+          </div>
+          <div id="fromStageFilter" class="multi"></div>
+        </div>
+        <div class="group">
+          <div class="filter-head">
+            <label>Etapa de destino</label>
+            <button class="filter-toggle" type="button" data-target="toStageFilter">Nenhum</button>
+          </div>
+          <div id="toStageFilter" class="multi"></div>
+        </div>
+        <div class="toolbar">
+          <button id="clearFilters">Restaurar visão geral</button>
+        </div>
+      </aside>
+
+      <main class="shell" style="max-width:none; margin:0;">
+        <section class="panel">
+          <div class="section-head">
+            <div>
+              <h2>Distribuição diária</h2>
+              <span>O pico de movimentação fica evidente para contextualizar a reunião.</span>
+            </div>
+          </div>
+          <div id="dailyTimeline" class="timeline"></div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <div>
+              <h2>Ranking por atendente</h2>
+              <span>Comparativo entre quem executou a mudança e o responsavel atual do cliente.</span>
+            </div>
+          </div>
+          <div class="charts">
+            <div class="chart-card">
+              <div class="chart-title"><span>Quem alterou</span><span id="actorTotal">0</span></div>
+              <div id="chartActors"></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title"><span>Responsavel atual</span><span id="assignedTotal">0</span></div>
+              <div id="chartAssigned"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <div>
+              <h2>Leituras rápidas</h2>
+              <span>Resumo textual atualizado conforme os filtros.</span>
+            </div>
+          </div>
+          <div id="insights" style="display:grid; gap:8px;"></div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <div>
+              <h2>Clientes do período</h2>
+              <span>Quem são os clientes, quem está responsável e qual foi a leitura lógica do evento.</span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Cliente</th>
+                  <th>Responsável atual</th>
+                  <th>Quem alterou</th>
+                  <th>Leitura</th>
+                  <th>Movimento</th>
+                  <th>Etapa atual</th>
+                  <th style="text-align:right">Msgs atendente</th>
+                </tr>
+              </thead>
+              <tbody id="clientRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <div>
+              <h2>Detalhamento filtrado</h2>
+              <span>Mudanças agregadas por data, atendente, origem e destino.</span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Alterou</th>
+                  <th>Destino</th>
+                  <th>Responsavel atual</th>
+                  <th>Origem</th>
+                  <th>Etapa final</th>
+                  <th style="text-align:right">Mudanças</th>
+                  <th style="text-align:right">Clientes</th>
+                </tr>
+              </thead>
+              <tbody id="rows"></tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="6"><strong>Total filtrado</strong></td>
+                  <td id="footChanges" style="text-align:right"><strong>0</strong></td>
+                  <td id="footClients" style="text-align:right"><strong>0</strong></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="footer">
+      <span>Dados extraídos do Supabase do projeto Atendy.</span>
+      <span>Clientes na tabela são agregados por linha; em filtros amplos, um mesmo cliente pode aparecer em mais de uma movimentação.</span>
+    </div>
+  </div>
+
+  <script>
+    const report = {
+      meta: { start: "2026-05-18", end: "2026-05-24", timezone: "America/Sao_Paulo" },
+      summary: { total_changes: 19, total_clientes: 18 },
+      daily: [
+        { dia: "2026-05-18", changes: 7, clientes_moved: 7 },
+        { dia: "2026-05-19", changes: 5, clientes_moved: 4 },
+        { dia: "2026-05-21", changes: 1, clientes_moved: 1 },
+        { dia: "2026-05-22", changes: 6, clientes_moved: 6 }
+      ],
+      events: [
+        { dia: "2026-05-18", actor: "Daiane Honorio", changes: 1, to_stage: "Sem etapa destino", from_stage: "Sem etapa anterior", clientes_moved: 1, to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual" },
+        { dia: "2026-05-18", actor: "Hemilly Kinupp", changes: 1, to_stage: "Sem etapa destino", from_stage: "Sem etapa anterior", clientes_moved: 1, to_assigned_to: "Sem atendente destino", current_responsible: "Giovanna Moraes" },
+        { dia: "2026-05-18", actor: "Sem usuário (sistema)", changes: 1, to_stage: "Mais novo", from_stage: "Sem etapa anterior", clientes_moved: 1, to_assigned_to: "Sem atendente destino", current_responsible: "Emily Soares" },
+        { dia: "2026-05-18", actor: "Sem usuário (sistema)", changes: 2, to_stage: "Mais novo", from_stage: "Sem etapa anterior", clientes_moved: 2, to_assigned_to: "Sem atendente destino", current_responsible: "Giovanna Moraes" },
+        { dia: "2026-05-18", actor: "Sem usuário (sistema)", changes: 1, to_stage: "Mais novo", from_stage: "Sem etapa anterior", clientes_moved: 1, to_assigned_to: "Sem atendente destino", current_responsible: "Maria Luiza Marques" },
+        { dia: "2026-05-18", actor: "Sem usuário (sistema)", changes: 1, to_stage: "Mais novo", from_stage: "Sem etapa anterior", clientes_moved: 1, to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual" },
+        { dia: "2026-05-19", actor: "Daiane Honorio", changes: 1, to_stage: "Sem etapa destino", from_stage: "Sem etapa anterior", clientes_moved: 1, to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual" },
+        { dia: "2026-05-19", actor: "Sem usuário (sistema)", changes: 2, to_stage: "Mais novo", from_stage: "Sem etapa anterior", clientes_moved: 2, to_assigned_to: "Sem atendente destino", current_responsible: "Maria Luiza Marques" },
+        { dia: "2026-05-19", actor: "Yasmin Correia", changes: 1, to_stage: "Mais novo", from_stage: "Sem etapa anterior", clientes_moved: 1, to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual" },
+        { dia: "2026-05-19", actor: "Yasmin Correia", changes: 1, to_stage: "Sem etapa destino", from_stage: "Sem etapa anterior", clientes_moved: 1, to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual" },
+        { dia: "2026-05-21", actor: "Sem usuário (sistema)", changes: 1, to_stage: "Mais novo", from_stage: "Sem etapa anterior", clientes_moved: 1, to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual" },
+        { dia: "2026-05-22", actor: "Sem usuário (sistema)", changes: 1, to_stage: "Cancelado", from_stage: "Mais novo", clientes_moved: 1, to_assigned_to: "Sem atendente destino", current_responsible: "Maria Luiza Marques" },
+        { dia: "2026-05-22", actor: "Sem usuário (sistema)", changes: 1, to_stage: "Cancelado", from_stage: "Mais novo", clientes_moved: 1, to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual" },
+        { dia: "2026-05-22", actor: "Sem usuário (sistema)", changes: 4, to_stage: "Mais novo", from_stage: "Sem etapa anterior", clientes_moved: 4, to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual" }
+      ],
+      attendants: [
+        "Daiane Honorio", "Emily Soares", "Giovanna Moraes", "Hemilly Kinupp", "Maria Luiza Marques", "Sem atendente destino", "Sem responsavel atual", "Sem usuário (sistema)", "Yasmin Correia"
+      ],
+      fromStages: ["Mais novo", "Sem etapa anterior"],
+      toStages: ["Cancelado", "Mais novo", "Sem etapa destino"],
+      topActors: [
+        { actor: "Sem usuário (sistema)", changes: 14 },
+        { actor: "Daiane Honorio", changes: 2 },
+        { actor: "Yasmin Correia", changes: 2 },
+        { actor: "Hemilly Kinupp", changes: 1 }
+      ],
+      topAssigned: [
+        { to_assigned_to: "Sem responsavel atual", changes: 11 },
+        { to_assigned_to: "Maria Luiza Marques", changes: 4 },
+        { to_assigned_to: "Giovanna Moraes", changes: 3 },
+        { to_assigned_to: "Emily Soares", changes: 1 }
+      ],
+      clients: [
+        { code: "6531", cliente: "MY LEGACY GYM", responsavel_atual: "Emily Soares", leitura_logica: "Entrada no funil", quem_alterou: "Sem usuário (sistema)", movimentos: "Sem etapa anterior -> Mais novo", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-18", actor: "Sem usuário (sistema)", to_assigned_to: "Sem atendente destino", current_responsible: "Emily Soares", from_stage: "Sem etapa anterior", to_stage: "Mais novo" },
+        { code: "6529", cliente: "MANALAC", responsavel_atual: "Giovanna Moraes", leitura_logica: "Entrada no funil", quem_alterou: "Sem usuário (sistema)", movimentos: "Sem etapa anterior -> Mais novo", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-18", actor: "Sem usuário (sistema)", to_assigned_to: "Sem atendente destino", current_responsible: "Giovanna Moraes", from_stage: "Sem etapa anterior", to_stage: "Mais novo" },
+        { code: "6530", cliente: "PITICAS BARRETOS", responsavel_atual: "Giovanna Moraes", leitura_logica: "Entrada no funil", quem_alterou: "Sem usuário (sistema)", movimentos: "Sem etapa anterior -> Mais novo", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-18", actor: "Sem usuário (sistema)", to_assigned_to: "Sem atendente destino", current_responsible: "Giovanna Moraes", from_stage: "Sem etapa anterior", to_stage: "Mais novo" },
+        { code: "4984", cliente: "VAIO", responsavel_atual: "Giovanna Moraes", leitura_logica: "Evento de celebridade", quem_alterou: "Hemilly Kinupp", movimentos: "Sem etapa anterior -> Sem etapa destino", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-18", actor: "Hemilly Kinupp", to_assigned_to: "Sem atendente destino", current_responsible: "Giovanna Moraes", from_stage: "Sem etapa anterior", to_stage: "Sem etapa destino" },
+        { code: "6535", cliente: "ASFEM-PR", responsavel_atual: "Maria Luiza Marques", leitura_logica: "Entrada no funil", quem_alterou: "Sem usuário (sistema)", movimentos: "Sem etapa anterior -> Mais novo", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-19", actor: "Sem usuário (sistema)", to_assigned_to: "Sem atendente destino", current_responsible: "Maria Luiza Marques", from_stage: "Sem etapa anterior", to_stage: "Mais novo" },
+        { code: "6149", cliente: "Crystal Hayalla", responsavel_atual: "Maria Luiza Marques", leitura_logica: "Movimentado em etapa", quem_alterou: "Sem usuário (sistema)", movimentos: "Mais novo -> Cancelado", etapa_atual: "Cancelado", mensagens_atendente: 0, dia: "2026-05-22", actor: "Sem usuário (sistema)", to_assigned_to: "Sem atendente destino", current_responsible: "Maria Luiza Marques", from_stage: "Mais novo", to_stage: "Cancelado" },
+        { code: "6534", cliente: "GRECCO ODONTOLOGIA", responsavel_atual: "Maria Luiza Marques", leitura_logica: "Entrada no funil", quem_alterou: "Sem usuário (sistema)", movimentos: "Sem etapa anterior -> Mais novo", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-19", actor: "Sem usuário (sistema)", to_assigned_to: "Sem atendente destino", current_responsible: "Maria Luiza Marques", from_stage: "Sem etapa anterior", to_stage: "Mais novo" },
+        { code: "6533", cliente: "SKYBEUATY", responsavel_atual: "Maria Luiza Marques", leitura_logica: "Entrada no funil", quem_alterou: "Sem usuário (sistema)", movimentos: "Sem etapa anterior -> Mais novo", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-18", actor: "Sem usuário (sistema)", to_assigned_to: "Sem atendente destino", current_responsible: "Maria Luiza Marques", from_stage: "Sem etapa anterior", to_stage: "Mais novo" },
+        { code: "6538", cliente: "BARATO COLETIVO", responsavel_atual: "Sem responsavel atual", leitura_logica: "Entrada no funil", quem_alterou: "Sem usuário (sistema)", movimentos: "Sem etapa anterior -> Mais novo", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-22", actor: "Sem usuário (sistema)", to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual", from_stage: "Sem etapa anterior", to_stage: "Mais novo" },
+        { code: "6540", cliente: "CARGE | Estratégia de Marca", responsavel_atual: "Sem responsavel atual", leitura_logica: "Entrada no funil", quem_alterou: "Sem usuário (sistema)", movimentos: "Sem etapa anterior -> Mais novo", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-22", actor: "Sem usuário (sistema)", to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual", from_stage: "Sem etapa anterior", to_stage: "Mais novo" },
+        { code: "5792", cliente: "CONSTRUTORA MLB", responsavel_atual: "Sem responsavel atual", leitura_logica: "Evento de celebridade", quem_alterou: "Daiane Honorio", movimentos: "Sem etapa anterior -> Sem etapa destino", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-19", actor: "Daiane Honorio", to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual", from_stage: "Sem etapa anterior", to_stage: "Sem etapa destino" },
+        { code: "6532", cliente: "GRIVALLE SUPLEMENTOS E PRODUTOS NATURAIS", responsavel_atual: "Sem responsavel atual", leitura_logica: "Entrada no funil", quem_alterou: "Sem usuário (sistema)", movimentos: "Sem etapa anterior -> Mais novo", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-18", actor: "Sem usuário (sistema)", to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual", from_stage: "Sem etapa anterior", to_stage: "Mais novo" },
+        { code: "6389", cliente: "myhope systems", responsavel_atual: "Sem responsavel atual", leitura_logica: "Movimentado em etapa", quem_alterou: "Sem usuário (sistema)", movimentos: "Mais novo -> Cancelado", etapa_atual: "Cancelado", mensagens_atendente: 0, dia: "2026-05-22", actor: "Sem usuário (sistema)", to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual", from_stage: "Mais novo", to_stage: "Cancelado" },
+        { code: "6536", cliente: "SERALLE (6/36)", responsavel_atual: "Sem responsavel atual", leitura_logica: "Entrada no funil", quem_alterou: "Yasmin Correia", movimentos: "Sem etapa anterior -> Mais novo | Sem etapa anterior -> Sem etapa destino", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-19", actor: "Yasmin Correia", to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual", from_stage: "Sem etapa anterior", to_stage: "Mais novo" },
+        { code: "6537", cliente: "SIMETRIA COMPLETA", responsavel_atual: "Sem responsavel atual", leitura_logica: "Entrada no funil", quem_alterou: "Sem usuário (sistema)", movimentos: "Sem etapa anterior -> Mais novo", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-21", actor: "Sem usuário (sistema)", to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual", from_stage: "Sem etapa anterior", to_stage: "Mais novo" },
+        { code: "6094", cliente: "StudioBox Brasil", responsavel_atual: "Sem responsavel atual", leitura_logica: "Evento de celebridade", quem_alterou: "Daiane Honorio", movimentos: "Sem etapa anterior -> Sem etapa destino", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-18", actor: "Daiane Honorio", to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual", from_stage: "Sem etapa anterior", to_stage: "Sem etapa destino" },
+        { code: "6541", cliente: "VITTORINO MODAS", responsavel_atual: "Sem responsavel atual", leitura_logica: "Entrada no funil", quem_alterou: "Sem usuário (sistema)", movimentos: "Sem etapa anterior -> Mais novo", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-22", actor: "Sem usuário (sistema)", to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual", from_stage: "Sem etapa anterior", to_stage: "Mais novo" },
+        { code: "6539", cliente: "XCAR", responsavel_atual: "Sem responsavel atual", leitura_logica: "Entrada no funil", quem_alterou: "Sem usuário (sistema)", movimentos: "Sem etapa anterior -> Mais novo", etapa_atual: "Mais novo", mensagens_atendente: 0, dia: "2026-05-22", actor: "Sem usuário (sistema)", to_assigned_to: "Sem atendente destino", current_responsible: "Sem responsavel atual", from_stage: "Sem etapa anterior", to_stage: "Mais novo" }
+      ]
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function createCheckboxes(containerId, items, prefix) {
+      const c = $(containerId);
+      items.forEach((item, idx) => {
+        const id = `${prefix}-${idx}-${item.replace(/[^a-zA-Z0-9À-ÿ]/g, '-')}`;
+        const label = document.createElement('label');
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = item;
+        input.id = id;
+        input.checked = true;
+        input.className = 'filter-item';
+        label.htmlFor = id;
+        label.textContent = item;
+        label.prepend(input);
+        c.appendChild(label);
+      });
+    }
+
+    function collectChecked(containerId) {
+      return [...document.querySelectorAll(`#${containerId} input.filter-item`)]
+        .filter((el) => el.checked)
+        .map((el) => el.value);
+    }
+
+    function updateToggleLabel(containerId) {
+      const toggle = document.querySelector(`.filter-toggle[data-target="${containerId}"]`);
+      if (!toggle) return;
+
+      const inputs = [...document.querySelectorAll(`#${containerId} input.filter-item`)];
+      const allChecked = inputs.length > 0 && inputs.every((el) => el.checked);
+      toggle.textContent = allChecked ? 'Nenhum' : 'Selecionar todos';
+    }
+
+    function updateAllToggleLabels() {
+      ['attendantFilter', 'fromStageFilter', 'toStageFilter'].forEach(updateToggleLabel);
+    }
+
+    function toggleFilterGroup(containerId) {
+      const inputs = [...document.querySelectorAll(`#${containerId} input.filter-item`)];
+      const shouldSelectAll = inputs.some((el) => !el.checked);
+      inputs.forEach((el) => {
+        el.checked = shouldSelectAll;
+      });
+      updateToggleLabel(containerId);
+      applyFilters();
+    }
+
+    function formatNumber(value) {
+      return Number(value || 0).toLocaleString('pt-BR');
+    }
+
+    function formatDateLabel(value) {
+      const [year, month, day] = value.split('-');
+      return `${day}/${month}`;
+    }
+
+    function fullDateRange() {
+      const dates = [];
+      const cursor = new Date(`${report.meta.start}T00:00:00`);
+      const end = new Date(`${report.meta.end}T00:00:00`);
+      while (cursor <= end) {
+        dates.push(cursor.toISOString().slice(0, 10));
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      return dates;
+    }
+
+    function applyFilters() {
+      const start = $('startDate').value;
+      const end = $('endDate').value;
+      const att = new Set(collectChecked('attendantFilter'));
+      const fromStages = new Set(collectChecked('fromStageFilter'));
+      const toStages = new Set(collectChecked('toStageFilter'));
+
+      const filtered = report.events.filter((row) => {
+        const okDate = (!start || row.dia >= start) && (!end || row.dia <= end);
+        const okFrom = fromStages.has(row.from_stage);
+        const okTo = toStages.has(row.to_stage);
+        const okAtt = att.has(row.actor) || att.has(row.to_assigned_to) || att.has(row.current_responsible);
+        return okDate && okFrom && okTo && okAtt;
+      });
+      const filteredClients = report.clients.filter((row) => {
+        const okDate = (!start || row.dia >= start) && (!end || row.dia <= end);
+        const okFrom = fromStages.has(row.from_stage);
+        const okTo = toStages.has(row.to_stage);
+        const okAtt = att.has(row.actor) || att.has(row.to_assigned_to) || att.has(row.current_responsible);
+        return okDate && okFrom && okTo && okAtt;
+      });
+
+      const totalChanges = filtered.reduce((acc, r) => acc + r.changes, 0);
+      const groupedClientMovements = filtered.reduce((acc, r) => acc + r.clientes_moved, 0);
+      const days = new Set(filtered.map((r) => r.dia));
+      const isFullView = totalChanges === report.summary.total_changes && filtered.length === report.events.length;
+      const clientsValue = isFullView ? report.summary.total_clientes : filteredClients.length;
+
+      $('kpiFiltered').textContent = formatNumber(filtered.length);
+      $('kpiActiveDays').textContent = formatNumber(days.size);
+      $('kpiTotalChanges').textContent = formatNumber(totalChanges);
+      $('kpiTotalClients').textContent = formatNumber(clientsValue);
+      $('kpiClientsHelp').textContent = isFullView ? 'Clientes distintos no período' : 'Clientes no filtro ativo';
+
+      renderTable(filtered);
+      renderClientTable(filteredClients);
+      renderCharts(filtered);
+      renderFooter(filtered);
+      renderDailyTimeline(filtered);
+      renderInsights(filtered, filteredClients, totalChanges, groupedClientMovements, isFullView);
+      updateAllToggleLabels();
+    }
+
+    function renderTable(rows) {
+      const tbody = $('rows');
+      tbody.innerHTML = '';
+      if (!rows.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 8;
+        td.className = 'muted';
+        td.textContent = 'Sem resultados com os filtros selecionados.';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+
+      rows
+        .sort((a,b) => {
+          if (a.dia === b.dia) {
+            if (a.actor === b.actor) return b.changes - a.changes;
+            return a.actor.localeCompare(b.actor);
+          }
+          return a.dia < b.dia ? -1 : 1;
+        })
+        .forEach((r) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${formatDateLabel(r.dia)}</td>
+            <td><span class="pill">${r.actor}</span></td>
+            <td><span class="pill">${r.to_assigned_to}</span></td>
+            <td><span class="pill">${r.current_responsible}</span></td>
+            <td><span class="pill stage-pill">${r.from_stage}</span></td>
+            <td><span class="pill stage-pill">${r.to_stage}</span></td>
+            <td style="text-align:right">${formatNumber(r.changes)}</td>
+            <td style="text-align:right">${formatNumber(r.clientes_moved)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+    }
+
+    function renderClientTable(rows) {
+      const tbody = $('clientRows');
+      tbody.innerHTML = '';
+
+      if (!rows.length) {
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 8;
+        td.className = 'muted';
+        td.textContent = 'Nenhum cliente encontrado com os filtros selecionados.';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+
+      rows
+        .sort((a, b) => {
+          if (a.responsavel_atual === b.responsavel_atual) return a.cliente.localeCompare(b.cliente);
+          return a.responsavel_atual.localeCompare(b.responsavel_atual);
+        })
+        .forEach((r) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${r.code || '—'}</td>
+            <td><strong>${r.cliente}</strong></td>
+            <td><span class="pill">${r.responsavel_atual}</span></td>
+            <td><span class="pill">${r.quem_alterou}</span></td>
+            <td><span class="pill">${r.leitura_logica}</span></td>
+            <td><span class="pill stage-pill">${r.movimentos}</span></td>
+            <td><span class="pill stage-pill">${r.etapa_atual}</span></td>
+            <td style="text-align:right">${formatNumber(r.mensagens_atendente)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+    }
+
+    function renderFooter(rows) {
+      const totalChanges = rows.reduce((acc, r) => acc + r.changes, 0);
+      const totalClients = rows.reduce((acc, r) => acc + r.clientes_moved, 0);
+      $('footChanges').textContent = formatNumber(totalChanges);
+      $('footClients').textContent = formatNumber(totalClients);
+    }
+
+    function renderBars(containerId, list, key, valueKey) {
+      const container = $(containerId);
+      container.innerHTML = '';
+
+      if (!list.length) {
+        container.innerHTML = '<div class="muted">Sem dados</div>';
+        return;
+      }
+
+      const max = Math.max(...list.map((l) => l[valueKey]));
+      list.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'row';
+
+        const title = document.createElement('div');
+        title.style.display = 'flex';
+        title.style.justifyContent = 'space-between';
+        title.style.fontSize = '0.88rem';
+        const name = document.createElement('span');
+        name.className = 'pill';
+        name.textContent = item[key];
+
+        const val = document.createElement('span');
+        val.className = 'bar-value';
+        val.textContent = formatNumber(item[valueKey]);
+
+        title.appendChild(name);
+        title.appendChild(val);
+
+        const bar = document.createElement('div');
+        bar.className = 'bar';
+        const fill = document.createElement('span');
+        fill.style.width = `${(item[valueKey] / max) * 100}%`;
+        bar.appendChild(fill);
+
+        row.appendChild(title);
+        row.appendChild(bar);
+        container.appendChild(row);
+      });
+    }
+
+    function renderCharts(filteredRows) {
+      const actorMap = new Map();
+      const assignedMap = new Map();
+
+      filteredRows.forEach((r) => {
+        actorMap.set(r.actor, (actorMap.get(r.actor) || 0) + r.changes);
+        assignedMap.set(r.current_responsible, (assignedMap.get(r.current_responsible) || 0) + r.changes);
+      });
+
+      const actorList = [...actorMap.entries()].map(([actor, changes]) => ({ actor, changes })).sort((a, b) => b.changes - a.changes);
+      const assignedList = [...assignedMap.entries()].map(([to_assigned_to, changes]) => ({ to_assigned_to, changes })).sort((a, b) => b.changes - a.changes);
+
+      $('actorTotal').textContent = formatNumber(actorList.reduce((acc, item) => acc + item.changes, 0));
+      $('assignedTotal').textContent = formatNumber(assignedList.reduce((acc, item) => acc + item.changes, 0));
+      renderBars('chartActors', actorList, 'actor', 'changes');
+      renderBars('chartAssigned', assignedList, 'to_assigned_to', 'changes');
+    }
+
+    function renderDailyTimeline(filteredRows) {
+      const totals = new Map(fullDateRange().map((date) => [date, 0]));
+      filteredRows.forEach((row) => {
+        totals.set(row.dia, (totals.get(row.dia) || 0) + row.changes);
+      });
+
+      const max = Math.max(...totals.values(), 1);
+      const container = $('dailyTimeline');
+      container.innerHTML = '';
+
+      totals.forEach((changes, dia) => {
+        const card = document.createElement('div');
+        card.className = 'day';
+        card.innerHTML = `
+          <span>${formatDateLabel(dia)}</span>
+          <div class="day-bar"><i style="height:${Math.max((changes / max) * 48, changes ? 4 : 2)}px"></i></div>
+          <strong>${formatNumber(changes)}</strong>
+          <span>${changes === 1 ? 'mudança' : 'mudanças'}</span>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function renderInsights(filteredRows, filteredClients, totalChanges, groupedClientMovements, isFullView) {
+      const container = $('insights');
+      container.innerHTML = '';
+
+      if (!filteredRows.length) {
+        container.innerHTML = '<div class="insight"><i class="mark"></i><div>Nenhuma movimentação encontrada para os filtros selecionados.</div></div>';
+        return;
+      }
+
+      const byDay = new Map();
+      const byActor = new Map();
+      const byAssigned = new Map();
+      const byTransition = new Map();
+
+      filteredRows.forEach((row) => {
+        byDay.set(row.dia, (byDay.get(row.dia) || 0) + row.changes);
+        byActor.set(row.actor, (byActor.get(row.actor) || 0) + row.changes);
+        byAssigned.set(row.current_responsible, (byAssigned.get(row.current_responsible) || 0) + row.changes);
+        const transition = `${row.from_stage} → ${row.to_stage}`;
+        byTransition.set(transition, (byTransition.get(transition) || 0) + row.changes);
+      });
+
+      const top = (map) => [...map.entries()].sort((a, b) => b[1] - a[1])[0];
+      const [peakDay, peakDayTotal] = top(byDay);
+      const [topActor, topActorTotal] = top(byActor);
+      const [topAssigned, topAssignedTotal] = top(byAssigned);
+      const [topTransition, topTransitionTotal] = top(byTransition);
+      const clientsLabel = isFullView ? `${formatNumber(report.summary.total_clientes)} clientes distintos` : `${formatNumber(filteredClients.length)} clientes no filtro`;
+      const clientsWithMessages = filteredClients.filter((client) => client.mensagens_atendente > 0).length;
+
+      [
+        `Foram ${formatNumber(totalChanges)} mudanças de etapa no recorte atual, envolvendo ${clientsLabel}.`,
+        `${formatNumber(clientsWithMessages)} cliente(s) tiveram mensagem de atendente registrada no período filtrado.`,
+        `O dia de maior volume foi ${formatDateLabel(peakDay)}, com ${formatNumber(peakDayTotal)} mudanças.`,
+        `${topActor} concentrou ${formatNumber(topActorTotal)} mudanças realizadas; o principal responsavel atual no recorte foi ${topAssigned}, com ${formatNumber(topAssignedTotal)} registros.`,
+        `A transição mais relevante no filtro foi ${topTransition}, com ${formatNumber(topTransitionTotal)} ocorrências.`
+      ].forEach((text) => {
+        const item = document.createElement('div');
+        item.className = 'insight';
+        item.innerHTML = `<i class="mark"></i><div>${text}</div>`;
+        container.appendChild(item);
+      });
+    }
+
+    function resetFilters() {
+      ['attendantFilter', 'fromStageFilter', 'toStageFilter'].forEach((id) => {
+        [...document.querySelectorAll(`#${id} input.filter-item`)].forEach((el) => (el.checked = true));
+      });
+      $('startDate').value = report.meta.start;
+      $('endDate').value = report.meta.end;
+      updateAllToggleLabels();
+      applyFilters();
+    }
+
+    function init() {
+      $('startDate').value = report.meta.start;
+      $('endDate').value = report.meta.end;
+
+      createCheckboxes('attendantFilter', report.attendants, 'att');
+      createCheckboxes('fromStageFilter', report.fromStages, 'from');
+      createCheckboxes('toStageFilter', report.toStages, 'to');
+
+      [...document.querySelectorAll('.filter-item')].forEach((el) => {
+        el.addEventListener('change', () => {
+          updateAllToggleLabels();
+          applyFilters();
+        });
+      });
+
+      [...document.querySelectorAll('.filter-toggle')].forEach((el) => {
+        el.addEventListener('click', () => toggleFilterGroup(el.dataset.target));
+      });
+
+      ['startDate', 'endDate'].forEach((id) => {
+        $(id).addEventListener('change', applyFilters);
+      });
+
+      $('clearFilters').addEventListener('click', resetFilters);
+
+      const activeDays = report.daily.filter((d) => d.changes > 0).length;
+      $('kpiTotalChanges').textContent = formatNumber(report.summary.total_changes);
+      $('kpiTotalClients').textContent = formatNumber(report.summary.total_clientes);
+      $('kpiActiveDays').textContent = `${activeDays} dias`;
+      $('kpiFiltered').textContent = formatNumber(report.events.length);
+      $('startDate').disabled = false;
+
+      applyFilters();
+    }
+
+    init();
+  </script>
+</body>
+</html>
