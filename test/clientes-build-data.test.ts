@@ -13,6 +13,7 @@ describe("buildClientesData", () => {
           order_index: 2,
           is_active: true,
           is_final: false,
+          parent_stage_id: null,
         },
       ],
       clients: [
@@ -153,6 +154,7 @@ describe("buildClientesData", () => {
         order_index: 2,
         is_final: false,
         is_active: true,
+        parent_stage_id: null,
       },
     ]);
   });

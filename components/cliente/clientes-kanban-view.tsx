@@ -18,6 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { buildClientesKanbanColumns, CLIENTES_NO_STAGE_COLUMN_ID } from "@/lib/clientes/kanban";
 import { formatNullableDate, parseClienteDate } from "@/lib/clientes/format";
+import { getActiveParentClienteStages, getClienteStageRootId } from "@/lib/clientes/stages";
 import { currencyFormatter } from "@/lib/utils";
 import type { ClienteListItem, ClienteStageSummary } from "@/lib/clientes/types";
 
@@ -122,6 +123,8 @@ function sortItems(items: ClienteListItem[], key: SortKey): ClienteListItem[] {
 
 export function ClientesKanbanView({ rows, stages, movingIds, onOpenCliente, onMoveCliente }: Props) {
   const columns = useMemo(() => buildClientesKanbanColumns(rows, stages), [rows, stages]);
+  const stageById = useMemo(() => new Map(stages.map((stage) => [stage.id, stage])), [stages]);
+  const parentStages = useMemo(() => getActiveParentClienteStages(stages), [stages]);
   const [sortByColumn, setSortByColumn] = useState<Record<string, SortKey>>({});
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragTargetId, setDragTargetId] = useState<string | null>(null);
@@ -133,7 +136,7 @@ export function ClientesKanbanView({ rows, stages, movingIds, onOpenCliente, onM
   }, [stages]);
 
   function handleMove(clienteId: string, stageId: string, currentStageId: string | null) {
-    if (stageId === currentStageId) return;
+    if (stageId === getClienteStageRootId(currentStageId, stageById)) return;
     onMoveCliente(clienteId, stageId);
     const target = stageNamesById.get(stageId) ?? "outra etapa";
     setAnnounce(`Cliente movido para ${target}.`);
@@ -277,7 +280,8 @@ export function ClientesKanbanView({ rows, stages, movingIds, onOpenCliente, onM
                       const overdue = isPrazoOverdue(row.prazoFinal);
                       const isUrgent = row.tarefasUrgentes > 0 || overdue;
                       const isDragging = draggedId === row.id;
-                      const moveTargets = stages.filter((s) => s.is_active && s.id !== row.stageId);
+                      const currentRootStageId = getClienteStageRootId(row.stageId, stageById);
+                      const moveTargets = parentStages.filter((s) => s.id !== currentRootStageId);
                       const hue = getAvatarHue(row.responsavelNome);
 
                       return (

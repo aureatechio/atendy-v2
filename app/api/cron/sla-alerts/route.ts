@@ -29,6 +29,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 1000;
+const WRITE_CHUNK_SIZE = 500;
 
 interface HolidayRow {
   date: string;
@@ -60,6 +61,14 @@ async function fetchAll<T>(
     if (page.length < PAGE_SIZE) break;
   }
   return rows;
+}
+
+function chunks<T>(items: T[], size = WRITE_CHUNK_SIZE) {
+  const out: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    out.push(items.slice(index, index + size));
+  }
+  return out;
 }
 
 export async function GET(req: Request) {
@@ -184,18 +193,34 @@ export async function GET(req: Request) {
     ...contractExpiryAlerts,
   ];
 
-  const { data: openAlertsRaw, error: openErr } = await supabase
-    .from("sla_alerts")
-    .select("id,type,cliente_id,stage_id,task_id,status,entered_at,deadline")
-    .is("resolved_at", null);
-  if (openErr) {
+  let openAlertsRaw: Array<{
+    id: string;
+    type: string | null;
+    cliente_id: string;
+    stage_id: string | null;
+    task_id: string | null;
+    status: string;
+    entered_at: string;
+    deadline: string;
+  }>;
+
+  try {
+    openAlertsRaw = await fetchAll((from, to) =>
+      supabase
+        .from("sla_alerts")
+        .select("id,type,cliente_id,stage_id,task_id,status,entered_at,deadline")
+        .is("resolved_at", null)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
+  } catch (err) {
     return NextResponse.json(
-      { error: "Failed to load open alerts", detail: openErr.message },
+      { error: "Failed to load open alerts", detail: (err as Error).message },
       { status: 500 },
     );
   }
 
-  const openAlerts: OpenAlert[] = (openAlertsRaw ?? []).map((a) => ({
+  const openAlerts: OpenAlert[] = openAlertsRaw.map((a) => ({
     id: a.id as string,
     type: (a.type as AlertType) ?? "stage_sla",
     cliente_id: a.cliente_id as string,
@@ -219,7 +244,13 @@ export async function GET(req: Request) {
     );
     if (error) {
       return NextResponse.json(
-        { error: "Failed to insert alerts", detail: error.message },
+        {
+          error: "Failed to insert alerts",
+          detail: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        },
         { status: 500 },
       );
     }
@@ -244,28 +275,32 @@ export async function GET(req: Request) {
   }
 
   if (ops.toTouch.length > 0) {
-    const { error } = await supabase
-      .from("sla_alerts")
-      .update({ last_seen_at: now })
-      .in("id", ops.toTouch);
-    if (error) {
-      return NextResponse.json(
-        { error: "Failed to touch alerts", detail: error.message },
-        { status: 500 },
-      );
+    for (const ids of chunks(ops.toTouch)) {
+      const { error } = await supabase
+        .from("sla_alerts")
+        .update({ last_seen_at: now })
+        .in("id", ids);
+      if (error) {
+        return NextResponse.json(
+          { error: "Failed to touch alerts", detail: error.message },
+          { status: 500 },
+        );
+      }
     }
   }
 
   if (ops.toResolve.length > 0) {
-    const { error } = await supabase
-      .from("sla_alerts")
-      .update({ resolved_at: now })
-      .in("id", ops.toResolve);
-    if (error) {
-      return NextResponse.json(
-        { error: "Failed to resolve alerts", detail: error.message },
-        { status: 500 },
-      );
+    for (const ids of chunks(ops.toResolve)) {
+      const { error } = await supabase
+        .from("sla_alerts")
+        .update({ resolved_at: now })
+        .in("id", ids);
+      if (error) {
+        return NextResponse.json(
+          { error: "Failed to resolve alerts", detail: error.message },
+          { status: 500 },
+        );
+      }
     }
   }
 

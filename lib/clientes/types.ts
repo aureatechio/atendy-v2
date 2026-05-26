@@ -8,6 +8,7 @@ export interface ClienteStageSummary {
   order_index: number;
   is_final: boolean;
   is_active: boolean;
+  parent_stage_id: string | null;
 }
 
 export interface ClienteProfileSummary {

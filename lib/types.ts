@@ -106,6 +106,18 @@ export interface Alert {
     responsavelId: string | null;
     responsavelNome: string | null;
   };
+  assignment?: {
+    responsavelAtendimentoId: string | null;
+    assignedToId: string | null;
+  };
+  notification?: {
+    id: string;
+    state: "pending" | "snoozed" | "resolved";
+    snoozedUntil: string | null;
+    lastShownAt: string | null;
+    nextToastAt: string | null;
+    shouldToast: boolean;
+  };
   stage: { id: string; name: string; slug: string; color: string } | null;
   task: { id: string; title: string | null } | null;
 }

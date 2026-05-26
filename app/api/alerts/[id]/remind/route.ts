@@ -2,14 +2,22 @@ import { NextResponse } from "next/server";
 import {
   fetchAccessibleAlertById,
   getAlertAuthContext,
-  snoozeAlertForUserUntil,
+  remindAlertForUser,
 } from "@/lib/alerts/server";
+import {
+  isReminderOption,
+  type ReminderOption,
+} from "@/lib/alerts/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const DEFAULT_HOURS = 24;
-const MAX_HOURS = 24 * 30;
+function parseReminder(value: unknown): ReminderOption | null {
+  if (value === "tomorrow") return value;
+  const numeric =
+    typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+  return isReminderOption(numeric) ? numeric : null;
+}
 
 export async function POST(
   req: Request,
@@ -21,29 +29,29 @@ export async function POST(
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
-  let hours = DEFAULT_HOURS;
+  let reminder: ReminderOption | null = null;
   try {
-    const body = (await req.json()) as { hours?: unknown } | null;
-    if (body && typeof body.hours === "number" && Number.isFinite(body.hours)) {
-      hours = Math.min(Math.max(1, Math.floor(body.hours)), MAX_HOURS);
-    }
+    const body = (await req.json()) as
+      | { reminder?: unknown; value?: unknown; minutes?: unknown }
+      | null;
+    reminder = parseReminder(body?.reminder ?? body?.value ?? body?.minutes);
   } catch {
-    /* body opcional */
+    reminder = null;
   }
 
-  const snoozedUntil = new Date(Date.now() + hours * 3_600_000).toISOString();
+  if (reminder === null) {
+    return NextResponse.json(
+      { error: "Invalid reminder option" },
+      { status: 400 },
+    );
+  }
 
   const alert = await fetchAccessibleAlertById(auth.context, id);
   if (!alert.ok) {
     return NextResponse.json({ error: alert.error }, { status: alert.status });
   }
 
-  const result = await snoozeAlertForUserUntil(
-    auth.context,
-    alert.alert,
-    snoozedUntil,
-    { legacySnoozeHours: hours },
-  );
+  const result = await remindAlertForUser(auth.context, alert.alert, reminder);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }

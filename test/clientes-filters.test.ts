@@ -57,6 +57,7 @@ function makeData(items: ClienteListItem[]): ClientesData {
         order_index: 1,
         is_final: false,
         is_active: true,
+        parent_stage_id: null,
       },
     ],
     profiles: [{ id: "user-a", full_name: "Ana Produção", avatar_url: null }],
@@ -228,6 +229,62 @@ describe("useClientesFilters", () => {
     act(() => result.current.setFilter("vigencia", "none"));
     expect(result.current.rows.map((item) => item.id)).toEqual(["sem-vigencia"]);
     expect(result.current.activeFilterChips.some((chip) => chip.key === "vigencia")).toBe(true);
+  });
+
+  it("usa apenas etapas mae nas opções e filtra subetapas pela etapa pai", () => {
+    const dataWithSubstages: ClientesData = {
+      items: [
+        {
+          ...baseItem,
+          id: "cliente-pai",
+          nome: "Cliente Pai",
+          stageId: "stage-producao",
+          createdAt: "2026-05-01T12:00:00.000Z",
+          lastActivityAt: "2026-05-02T12:00:00.000Z",
+        },
+        {
+          ...baseItem,
+          id: "cliente-sub",
+          nome: "Cliente Sub",
+          stageId: "stage-design",
+          createdAt: "2026-05-01T12:00:00.000Z",
+          lastActivityAt: "2026-05-03T12:00:00.000Z",
+        },
+      ],
+      stages: [
+        {
+          id: "stage-producao",
+          name: "Producao",
+          slug: "producao",
+          color: "#2563eb",
+          order_index: 1,
+          is_final: false,
+          is_active: true,
+          parent_stage_id: null,
+        },
+        {
+          id: "stage-design",
+          name: "Design",
+          slug: "design",
+          color: "#f97316",
+          order_index: 1,
+          is_final: false,
+          is_active: true,
+          parent_stage_id: "stage-producao",
+        },
+      ],
+      profiles: [],
+    };
+    const { result } = renderHook(() =>
+      useClientesFilters(dataWithSubstages, { now: new Date("2026-05-18T12:00:00.000Z") }),
+    );
+
+    expect(result.current.options.stages).toEqual([{ id: "stage-producao", name: "Producao" }]);
+
+    act(() => result.current.setFilter("stageId", "stage-producao"));
+
+    expect(result.current.rows.map((item) => item.id)).toEqual(["cliente-sub", "cliente-pai"]);
+    expect(result.current.activeFilterChips.some((chip) => chip.label === "Etapa: Producao")).toBe(true);
   });
 
   it("ordena por valor e expõe chips removíveis", () => {

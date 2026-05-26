@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import {
+  fetchAccessibleAlertById,
+  getAlertAuthContext,
+  resolveAlertForUser,
+} from "@/lib/alerts/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,23 +13,19 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await getAlertAuthContext();
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
-  const now = new Date().toISOString();
-  const { error } = await supabase
-    .from("sla_alerts")
-    .update({ resolved_at: now, resolved_by: user.id })
-    .eq("id", id)
-    .is("resolved_at", null);
+  const alert = await fetchAccessibleAlertById(auth.context, id);
+  if (!alert.ok) {
+    return NextResponse.json({ error: alert.error }, { status: alert.status });
+  }
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  const result = await resolveAlertForUser(auth.context, alert.alert);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
   return NextResponse.json({ ok: true });

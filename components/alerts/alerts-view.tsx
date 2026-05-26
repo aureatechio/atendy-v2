@@ -32,6 +32,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAlerts, ALERT_TYPE_LABELS } from "@/hooks/useAlerts";
+import {
+  REMINDER_OPTIONS,
+  type ReminderOption,
+} from "@/lib/alerts/notifications";
 import type { Alert, AlertType } from "@/lib/types";
 
 function formatDateTime(iso: string) {
@@ -82,7 +86,7 @@ const STATUS_OPTIONS: {
   { value: "warning", label: "Em alerta" },
 ];
 
-type RowAction = "snooze" | "resolve";
+type RowAction = "remind" | "resolve";
 type RowState = { action: RowAction; phase: "pending" | "done" } | null;
 
 interface IconActionButtonProps {
@@ -119,6 +123,7 @@ function IconActionButton({
         className={className}
         title={label}
         aria-label={label}
+        onClick={onClick}
       >
         {content}
       </Link>
@@ -210,20 +215,28 @@ export function AlertsView() {
     setRowStates((prev) => ({ ...prev, [id]: next }));
   }
 
-  async function handleSnooze(alert: Alert) {
-    setRowState(alert.id, { action: "snooze", phase: "pending" });
-    const res = await fetch(`/api/alerts/${alert.id}/snooze`, {
+  function logOpened(alert: Alert) {
+    void fetch("/api/alerts/toast-events", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ hours: 24 }),
+      body: JSON.stringify({ event: "opened", alertIds: [alert.id] }),
+    }).catch(() => {});
+  }
+
+  async function handleReminder(alert: Alert, reminder: ReminderOption) {
+    setRowState(alert.id, { action: "remind", phase: "pending" });
+    const res = await fetch(`/api/alerts/${alert.id}/remind`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reminder }),
     });
     if (!res.ok) {
       setRowState(alert.id, null);
-      toast.error("Falha ao adiar alerta");
+      toast.error("Falha ao criar lembrete");
       return;
     }
-    setRowState(alert.id, { action: "snooze", phase: "done" });
-    toast.success("Alerta adiado por 24h");
+    setRowState(alert.id, { action: "remind", phase: "done" });
+    toast.success("Lembrete criado");
     setTimeout(() => {
       void refetch();
     }, 350);
@@ -264,6 +277,7 @@ export function AlertsView() {
       : hasActiveFilters
         ? "Nenhum alerta com os filtros atuais."
         : "Tudo dentro do prazo.";
+  const tableBodyKey = `${typeFilter}:${statusFilter}:${responsavelFilter}:${search}`;
 
   function clearFilters() {
     setTypeFilter("all");
@@ -438,7 +452,7 @@ export function AlertsView() {
               <TableHead className="alerts-col-actions">Ações</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody key={tableBodyKey}>
             {loading && filtered.length === 0 ? (
               <TableRow>
                 <TableCell className="alerts-table-state">
@@ -523,16 +537,40 @@ export function AlertsView() {
                           icon={<ExternalLink className="h-3.5 w-3.5" />}
                           intent="open"
                           href={`/clientes/${a.cliente.id}`}
+                          onClick={() => logOpened(a)}
                         />
-                        <IconActionButton
-                          label="Adiar 24h"
-                          icon={<BellOff className="h-3.5 w-3.5" />}
-                          intent="snooze"
-                          onClick={() => void handleSnooze(a)}
-                          state={
-                            state?.action === "snooze" ? state : null
-                          }
-                        />
+                        <details className="alerts-reminder-menu">
+                          <summary
+                            className="alerts-action-btn alerts-action-btn--snooze"
+                            title="Criar lembrete"
+                            aria-label="Criar lembrete"
+                            data-state={
+                              state?.action === "remind" ? state.phase : undefined
+                            }
+                          >
+                            {state?.action === "remind" &&
+                            state.phase === "pending" ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : state?.action === "remind" &&
+                              state.phase === "done" ? (
+                              <Check className="h-3.5 w-3.5" />
+                            ) : (
+                              <BellOff className="h-3.5 w-3.5" />
+                            )}
+                          </summary>
+                          <div className="alerts-reminder-menu-content">
+                            {REMINDER_OPTIONS.map((option) => (
+                              <button
+                                key={String(option.value)}
+                                type="button"
+                                className="alerts-reminder-menu-item"
+                                onClick={() => void handleReminder(a, option.value)}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        </details>
                         <IconActionButton
                           label="Marcar como resolvido"
                           icon={<CheckCircle2 className="h-3.5 w-3.5" />}
