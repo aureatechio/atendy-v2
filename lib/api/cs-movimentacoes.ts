@@ -9,7 +9,6 @@ import {
   type CsStageMovementData,
 } from "@/lib/cs/movimentacoes";
 import { createClient } from "@/lib/supabase/server";
-import { fetchSupabaseAll } from "@/lib/supabase/paginate";
 
 export type CsMovementsSearchParams = Record<string, string | string[] | undefined>;
 
@@ -21,7 +20,16 @@ type StageRecord = {
   order_index: number | null;
 };
 
-type ClientRecord = {
+type RpcEvent = {
+  id: string;
+  cliente_id: string | null;
+  from_stage_id: string | null;
+  to_stage_id: string | null;
+  changed_by: string | null;
+  created_at: string | null;
+};
+
+type RpcClient = {
   id: string;
   code: string | null;
   nomecliente: string | null;
@@ -29,27 +37,43 @@ type ClientRecord = {
   nome_fantasia: string | null;
 };
 
-type ProfileRecord = {
+type RpcProfile = {
   id: string;
   full_name: string | null;
 };
 
-type RawTaskHistoryRecord = {
-  id: string;
-  action_type: string | null;
+type RpcFlow = {
   from_stage_id: string | null;
   to_stage_id: string | null;
-  changed_by: string | null;
-  created_at: string | null;
-  task_id?: string | null;
-  task?: { cliente_id: string | null } | Array<{ cliente_id: string | null }> | null;
+  count: number;
+  unique_clients: number;
+  last_moved_at: string | null;
+  percentage: number;
 };
 
-const ID_CHUNK_SIZE = 500;
+type RpcBalance = {
+  stage_id: string;
+  entries: number;
+  exits: number;
+  net: number;
+};
 
-function uniqueValues(values: Array<string | null | undefined>) {
-  return [...new Set(values.filter((value): value is string => Boolean(value)))];
-}
+type RpcResponse = {
+  range_from: string | null;
+  range_to: string | null;
+  total_movements: number;
+  unique_clients: number;
+  event_count: number;
+  event_limit: number;
+  flows: RpcFlow[] | null;
+  balances: RpcBalance[] | null;
+  events: RpcEvent[] | null;
+  stages: StageRecord[] | null;
+  clients: RpcClient[] | null;
+  profiles: RpcProfile[] | null;
+};
+
+const RPC_EVENT_LIMIT = 5000;
 
 function normalizeStage(stage: StageRecord): CsMovementStage {
   return {
@@ -61,102 +85,70 @@ function normalizeStage(stage: StageRecord): CsMovementStage {
   };
 }
 
-async function fetchClientsByIds(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  ids: string[],
-): Promise<CsMovementClientRecord[]> {
-  if (ids.length === 0) return [];
-  const rows: ClientRecord[] = [];
-
-  for (let index = 0; index < ids.length; index += ID_CHUNK_SIZE) {
-    const chunk = ids.slice(index, index + ID_CHUNK_SIZE);
-    const { data, error } = await supabase
-      .from("clientes_cadastro")
-      .select("id, code, nomecliente, nome, nome_fantasia")
-      .in("id", chunk);
-    if (error) throw new Error(`Erro ao buscar clientes das movimentações: ${error.message}`);
-    rows.push(...((data ?? []) as ClientRecord[]));
-  }
-
-  return rows;
-}
-
-async function fetchProfilesByIds(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  ids: string[],
-): Promise<CsMovementProfileRecord[]> {
-  if (ids.length === 0) return [];
-  const rows: ProfileRecord[] = [];
-
-  for (let index = 0; index < ids.length; index += ID_CHUNK_SIZE) {
-    const chunk = ids.slice(index, index + ID_CHUNK_SIZE);
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", chunk);
-    if (error) throw new Error(`Erro ao buscar responsáveis das movimentações: ${error.message}`);
-    rows.push(...((data ?? []) as ProfileRecord[]));
-  }
-
-  return rows;
-}
-
-function taskClienteId(task: RawTaskHistoryRecord["task"]) {
-  if (!task) return null;
-  if (Array.isArray(task)) return task[0]?.cliente_id ?? null;
-  return task.cliente_id ?? null;
-}
-
 export async function getCsStageMovements(searchParams: CsMovementsSearchParams = {}): Promise<CsStageMovementData> {
   const supabase = await createClient();
   const parsedPeriod = parseCsMovementsPeriod(searchParams);
   const range = toCsMovementDataRange(parsedPeriod.range);
 
-  const [stagesRes, history] = await Promise.all([
-    supabase
-      .from("client_pipeline_stages")
-      .select("id, name, slug, color, order_index")
-      .order("order_index", { ascending: true }),
-    fetchSupabaseAll<RawTaskHistoryRecord>((from, to) => {
-      let query = supabase
-        .from("task_history")
-        .select("id, task_id, from_stage_id, to_stage_id, changed_by, action_type, created_at, task:production_tasks!task_history_task_id_fkey(cliente_id)")
-        .eq("action_type", "stage_change");
+  const { data, error } = await supabase.rpc("get_cs_stage_movements", {
+    range_from: range.from,
+    range_to: range.to,
+    event_limit: RPC_EVENT_LIMIT,
+  });
 
-      if (range.from) query = query.gte("created_at", range.from);
-      if (range.to) query = query.lte("created_at", range.to);
-
-      return query.order("created_at", { ascending: false }).range(from, to);
-    }),
-  ]);
-
-  if (stagesRes.error) {
-    throw new Error(`Erro ao buscar etapas das movimentações: ${stagesRes.error.message}`);
+  if (error) {
+    throw new Error(`Erro ao buscar movimentações via RPC: ${error.message}`);
   }
 
-  const normalizedHistory: CsMovementHistoryRecord[] = history.map((entry) => ({
+  const payload = (data ?? {}) as RpcResponse;
+
+  const stages: CsMovementStage[] = (payload.stages ?? []).map(normalizeStage);
+  const clients: CsMovementClientRecord[] = (payload.clients ?? []).map((client) => ({
+    id: client.id,
+    code: client.code,
+    nomecliente: client.nomecliente,
+    nome: client.nome,
+    nome_fantasia: client.nome_fantasia,
+  }));
+  const profiles: CsMovementProfileRecord[] = (payload.profiles ?? []).map((profile) => ({
+    id: profile.id,
+    full_name: profile.full_name,
+  }));
+
+  const history: CsMovementHistoryRecord[] = (payload.events ?? []).map((entry) => ({
     id: entry.id,
-    cliente_id: taskClienteId(entry.task),
+    cliente_id: entry.cliente_id,
     from_stage_id: entry.from_stage_id,
     to_stage_id: entry.to_stage_id,
     changed_by: entry.changed_by,
-    action_type: entry.action_type,
+    action_type: "stage_change",
     created_at: entry.created_at,
   }));
-
-  const clientIds = uniqueValues(normalizedHistory.map((entry) => entry.cliente_id));
-  const profileIds = uniqueValues(normalizedHistory.map((entry) => entry.changed_by));
-  const [clients, profiles] = await Promise.all([
-    fetchClientsByIds(supabase, clientIds),
-    fetchProfilesByIds(supabase, profileIds),
-  ]);
 
   return buildCsStageMovementData({
     periodLabel: parsedPeriod.label,
     range,
-    stages: ((stagesRes.data ?? []) as StageRecord[]).map(normalizeStage),
+    stages,
     clients,
     profiles,
-    history: normalizedHistory,
+    history,
+    precomputed: {
+      totalMovements: Number(payload.total_movements ?? 0),
+      uniqueClients: Number(payload.unique_clients ?? 0),
+      flows: (payload.flows ?? []).map((flow) => ({
+        from_stage_id: flow.from_stage_id,
+        to_stage_id: flow.to_stage_id,
+        count: Number(flow.count ?? 0),
+        unique_clients: Number(flow.unique_clients ?? 0),
+        last_moved_at: flow.last_moved_at,
+        percentage: Number(flow.percentage ?? 0),
+      })),
+      balances: (payload.balances ?? []).map((balance) => ({
+        stage_id: balance.stage_id,
+        entries: Number(balance.entries ?? 0),
+        exits: Number(balance.exits ?? 0),
+        net: Number(balance.net ?? 0),
+      })),
+    },
   });
 }

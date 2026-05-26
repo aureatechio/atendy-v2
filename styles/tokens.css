@@ -78,7 +78,7 @@
   --color-secondary: var(--surface-2);
   --color-ring: var(--primary);
 
-  --container-max: 1320px;
+  --container-max: 1600px;
 }
 
 @media (max-width: 1024px) {

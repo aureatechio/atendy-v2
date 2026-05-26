@@ -25,3 +25,7 @@ export function canAccessAdmin(snapshot: AuthSnapshot) {
 export function canAccessCS(snapshot: AuthSnapshot) {
   return snapshot.status === "active" && roleHasCapability(snapshot.profile.role, "csArea");
 }
+
+export function canAccessSettings(snapshot: AuthSnapshot) {
+  return snapshot.status === "active" && roleHasCapability(snapshot.profile.role, "settingsArea");
+}

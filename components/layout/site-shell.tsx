@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { SlaBell } from "@/components/layout/sla-bell";
 import { useAuth } from "@/hooks/use-auth";
 
-type LinkRequirement = "admin" | "csAccess";
+type LinkRequirement = "admin" | "csAccess" | "settingsAccess";
 
 type SiteRoute =
   | "/"
@@ -55,7 +55,7 @@ const links: NavLink[] = [
   { href: "/alertas", label: "Alertas", icon: Bell },
   { href: "/cs", label: "Gestão CS", icon: Sparkles, requires: "csAccess" },
   { href: "/admin/users", label: "Usuários", icon: ShieldCheck, requires: "admin" },
-  { href: "/configuracoes", label: "Configurações", icon: Settings, requires: "admin" },
+  { href: "/configuracoes", label: "Configurações", icon: Settings, requires: "settingsAccess" },
 ];
 
 const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/auth/callback"];
@@ -156,7 +156,7 @@ export function SiteShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { loading, profile, user, isAuthenticated, isPending, isBlocked, isSupervisor, isCsAccess, signOut } =
+  const { loading, profile, user, isAuthenticated, isPending, isBlocked, isSupervisor, isCsAccess, isSettingsAccess, signOut } =
     useAuth();
   const { title, trail } = getPageMeta(pathname || "/");
   const isPublicRoute = publicRoutes.some((route) => pathname === route || pathname?.startsWith(`${route}/`));
@@ -174,6 +174,7 @@ export function SiteShell({
     if (!link.requires) return true;
     if (link.requires === "admin") return isSupervisor;
     if (link.requires === "csAccess") return isCsAccess;
+    if (link.requires === "settingsAccess") return isSettingsAccess;
     return false;
   });
 

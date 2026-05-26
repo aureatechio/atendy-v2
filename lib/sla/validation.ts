@@ -37,6 +37,23 @@ export const updateStageSchema = z.object({
   followup_days: z.number().int().positive().nullable().optional(),
 });
 
+export const reorderStagesSchema = z.object({
+  updates: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        order_index: z.number().int().min(0),
+        parent_stage_id: z.string().uuid().nullable(),
+      }),
+    )
+    .min(1, "Informe ao menos uma etapa para reordenar."),
+});
+
+export const migrateStageSchema = z.object({
+  target_stage_id: z.string().uuid("Etapa de destino inválida."),
+  reason: z.string().trim().max(500).optional(),
+});
+
 export const createHolidaySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data deve ser YYYY-MM-DD."),
   description: z.string().trim().min(2, "Informe a descrição."),
@@ -50,5 +67,7 @@ export const updateHolidaySchema = z.object({
 
 export type CreateStageInput = z.infer<typeof createStageSchema>;
 export type UpdateStageInput = z.infer<typeof updateStageSchema>;
+export type ReorderStagesInput = z.infer<typeof reorderStagesSchema>;
+export type MigrateStageInput = z.infer<typeof migrateStageSchema>;
 export type CreateHolidayInput = z.infer<typeof createHolidaySchema>;
 export type UpdateHolidayInput = z.infer<typeof updateHolidaySchema>;

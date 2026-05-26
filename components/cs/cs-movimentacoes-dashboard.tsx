@@ -3,8 +3,8 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, CalendarDays, MoveRight, TrendingUp } from "lucide-react";
-import { useEffect, type CSSProperties } from "react";
+import { ArrowRight, CalendarDays, Loader2, MoveRight, TrendingUp } from "lucide-react";
+import { useEffect, useMemo, useState, useTransition, type CSSProperties } from "react";
 import type { PeriodPreset } from "@/lib/types";
 import type { CsMovementStage, CsStageMovementData } from "@/lib/cs/movimentacoes";
 import { usePaginatedTable } from "@/hooks/usePaginatedTable";
@@ -13,6 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { StageCombobox } from "@/components/cs/stage-combobox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type CsMovementsPeriod = Exclude<PeriodPreset, "all" | "monthPick">;
@@ -78,11 +80,44 @@ export function CsMovimentacoesDashboard({ initialData }: Props) {
   const toValue = searchParams.get("to") ?? dateInputValue(initialData.range.to);
   const { pagedItems, page, pageSize, pageCount, startIndex, endIndex, pageSizeOptions, setPage, setPageSize } =
     usePaginatedTable(initialData.events, [15, 30, 60, 100]);
-  const maxFlowCount = Math.max(...initialData.flows.map((flow) => flow.count), 1);
+
+  const [isPending, startTransition] = useTransition();
+  const [flowFromId, setFlowFromId] = useState<string>("all");
+  const [flowToId, setFlowToId] = useState<string>("all");
+
+  const flowFromStages = useMemo(() => {
+    const map = new Map<string, CsMovementStage>();
+    for (const flow of initialData.flows) map.set(flow.fromStage.id, flow.fromStage);
+    return [...map.values()].sort((a, b) => a.order_index - b.order_index);
+  }, [initialData.flows]);
+
+  const flowToStages = useMemo(() => {
+    const map = new Map<string, CsMovementStage>();
+    for (const flow of initialData.flows) map.set(flow.toStage.id, flow.toStage);
+    return [...map.values()].sort((a, b) => a.order_index - b.order_index);
+  }, [initialData.flows]);
+
+  const filteredFlows = useMemo(
+    () =>
+      initialData.flows.filter(
+        (flow) =>
+          (flowFromId === "all" || flow.fromStage.id === flowFromId) &&
+          (flowToId === "all" || flow.toStage.id === flowToId),
+      ),
+    [initialData.flows, flowFromId, flowToId],
+  );
+
+  const maxFlowCount = Math.max(...filteredFlows.map((flow) => flow.count), 1);
+  const hasFlowFilter = flowFromId !== "all" || flowToId !== "all";
 
   useEffect(() => {
     setPage(1);
   }, [initialData.events, setPage]);
+
+  useEffect(() => {
+    setFlowFromId("all");
+    setFlowToId("all");
+  }, [initialData.flows]);
 
   function updateParams(next: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -91,7 +126,9 @@ export function CsMovimentacoesDashboard({ initialData }: Props) {
       else params.delete(key);
     });
     const query = params.toString();
-    router.push((query ? `${pathname}?${query}` : pathname) as Route);
+    startTransition(() => {
+      router.push((query ? `${pathname}?${query}` : pathname) as Route);
+    });
   }
 
   function changePeriod(value: CsMovementsPeriod) {
@@ -103,16 +140,20 @@ export function CsMovimentacoesDashboard({ initialData }: Props) {
   }
 
   return (
-    <div className="cs-mov-page">
+    <div className={cn("cs-mov-page", isPending && "is-pending")} aria-busy={isPending}>
       <header className="cs-mov-header">
         <div>
           <span className="cs-mov-eyebrow">Gestão CS</span>
           <h1>Movimentações de etapa</h1>
           <p>Clientes com mudança operacional de etapa no período selecionado.</p>
         </div>
-        <div className="cs-mov-period">
+        <div className={cn("cs-mov-period", isPending && "is-loading")} aria-busy={isPending}>
           <CalendarDays className="h-4 w-4" aria-hidden />
-          <Select value={period} onChange={(event) => changePeriod(event.target.value as CsMovementsPeriod)}>
+          <Select
+            value={period}
+            disabled={isPending}
+            onChange={(event) => changePeriod(event.target.value as CsMovementsPeriod)}
+          >
             {periodOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -124,16 +165,24 @@ export function CsMovimentacoesDashboard({ initialData }: Props) {
               <Input
                 type="date"
                 value={fromValue}
+                disabled={isPending}
                 onChange={(event) => updateParams({ period: "custom", from: event.target.value })}
                 aria-label="Data inicial"
               />
               <Input
                 type="date"
                 value={toValue}
+                disabled={isPending}
                 onChange={(event) => updateParams({ period: "custom", to: event.target.value })}
                 aria-label="Data final"
               />
             </>
+          ) : null}
+          {isPending ? (
+            <span className="cs-mov-period-status" role="status">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              Atualizando…
+            </span>
           ) : null}
         </div>
       </header>
@@ -158,12 +207,45 @@ export function CsMovimentacoesDashboard({ initialData }: Props) {
             </div>
             <MoveRight className="h-4 w-4 ds-text-muted" aria-hidden />
           </CardHeader>
-          <CardContent>
+          <CardContent className="cs-mov-flow-content">
+            <div className="cs-mov-flow-filters" role="group" aria-label="Filtrar fluxos por etapa">
+              <StageCombobox
+                label="De"
+                value={flowFromId}
+                stages={flowFromStages}
+                placeholder="Buscar etapa de origem…"
+                onChange={setFlowFromId}
+              />
+              <StageCombobox
+                label="Para"
+                value={flowToId}
+                stages={flowToStages}
+                placeholder="Buscar etapa de destino…"
+                onChange={setFlowToId}
+              />
+              {hasFlowFilter ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="cs-mov-flow-filters-clear"
+                  onClick={() => {
+                    setFlowFromId("all");
+                    setFlowToId("all");
+                  }}
+                >
+                  Limpar
+                </Button>
+              ) : null}
+            </div>
+
             {initialData.flows.length === 0 ? (
               <p className="cs-mov-empty">Nenhuma mudança de etapa encontrada.</p>
+            ) : filteredFlows.length === 0 ? (
+              <p className="cs-mov-empty">Nenhum fluxo combina com o filtro selecionado.</p>
             ) : (
               <div className="cs-mov-flow-list">
-                {initialData.flows.map((flow) => (
+                {filteredFlows.map((flow) => (
                   <article key={flow.key} className="cs-mov-flow-row">
                     <div className="cs-mov-flow-main">
                       <div className="cs-mov-flow-route">

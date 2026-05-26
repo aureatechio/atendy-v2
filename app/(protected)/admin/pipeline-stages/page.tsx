@@ -1,7 +1,7 @@
-import { PipelineStagesAdmin } from "@/components/admin/pipeline-stages-admin";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminPipelineStagesPage() {
-  return <PipelineStagesAdmin />;
+export default function LegacyAdminPipelineStagesPage() {
+  redirect("/configuracoes/etapas");
 }

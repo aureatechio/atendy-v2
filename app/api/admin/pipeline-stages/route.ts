@@ -8,7 +8,7 @@ const stageColumns =
   "id, name, slug, color, order_index, is_final, is_active, parent_stage_id, sla_amount, sla_unit, warn_at_percent, followup_days, created_at, updated_at";
 
 export async function GET() {
-  const access = await requireAdminAccess({ capability: "adminArea" });
+  const access = await requireAdminAccess({ capability: "settingsArea" });
   if (access.error) return access.error;
 
   const supabase = await createClient();
@@ -26,7 +26,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const access = await requireAdminAccess();
+  const access = await requireAdminAccess({ capability: "settingsArea" });
   if (access.error) return access.error;
 
   const parsed = createStageSchema.safeParse(await request.json());

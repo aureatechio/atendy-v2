@@ -77,6 +77,29 @@ export type CsStageMovementData = {
   biggestPositiveBalance: CsStageMovementBalance | null;
 };
 
+export type PrecomputedFlow = {
+  from_stage_id: string | null;
+  to_stage_id: string | null;
+  count: number;
+  unique_clients: number;
+  last_moved_at: string | null;
+  percentage: number;
+};
+
+export type PrecomputedBalance = {
+  stage_id: string;
+  entries: number;
+  exits: number;
+  net: number;
+};
+
+export type PrecomputedAggregates = {
+  totalMovements: number;
+  uniqueClients: number;
+  flows: PrecomputedFlow[];
+  balances: PrecomputedBalance[];
+};
+
 export type BuildCsStageMovementDataInput = {
   periodLabel: string;
   range: {
@@ -87,6 +110,12 @@ export type BuildCsStageMovementDataInput = {
   clients: CsMovementClientRecord[];
   profiles: CsMovementProfileRecord[];
   history: CsMovementHistoryRecord[];
+  /**
+   * When provided, totals/flows/balances are taken from the precomputed aggregates
+   * (typically the RPC's response). The `history` array is then used only to
+   * render the recent-events table.
+   */
+  precomputed?: PrecomputedAggregates;
 };
 
 export type ParsedCsMovementsPeriod = {
@@ -206,64 +235,103 @@ export function buildCsStageMovementData(input: BuildCsStageMovementDataInput): 
     })
     .sort((a, b) => String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")));
 
-  const uniqueClients = new Set(events.map((event) => event.clienteId).filter(Boolean)).size;
-  const flowAccumulator = new Map<
-    string,
-    CsStageMovementFlow & { clientIds: Set<string> }
-  >();
-  const balanceAccumulator = new Map<string, CsStageMovementBalance>();
+  let totalMovements: number;
+  let uniqueClients: number;
+  let flows: CsStageMovementFlow[];
+  let balances: CsStageMovementBalance[];
 
-  for (const stage of input.stages) {
-    balanceAccumulator.set(stage.id, { stage, entries: 0, exits: 0, net: 0 });
-  }
+  if (input.precomputed) {
+    totalMovements = input.precomputed.totalMovements;
+    uniqueClients = input.precomputed.uniqueClients;
 
-  for (const event of events) {
-    const key = `${event.fromStage.id}->${event.toStage.id}`;
-    const existing = flowAccumulator.get(key);
-    const clientIds = existing?.clientIds ?? new Set<string>();
-    if (event.clienteId) clientIds.add(event.clienteId);
+    flows = input.precomputed.flows
+      .map((flow) => {
+        const fromStage = resolveStage(stageById, flow.from_stage_id, true);
+        const toStage = resolveStage(stageById, flow.to_stage_id, false);
+        return {
+          key: `${fromStage.id}->${toStage.id}`,
+          label: `${fromStage.name} → ${toStage.name}`,
+          fromStage,
+          toStage,
+          count: flow.count,
+          uniqueClients: flow.unique_clients,
+          percentage: roundPercent(flow.percentage),
+          lastMovedAt: flow.last_moved_at,
+        };
+      })
+      .sort((a, b) => b.count - a.count || String(b.lastMovedAt ?? "").localeCompare(String(a.lastMovedAt ?? "")));
 
-    flowAccumulator.set(key, {
-      key,
-      label: `${event.fromStage.name} → ${event.toStage.name}`,
-      fromStage: event.fromStage,
-      toStage: event.toStage,
-      count: (existing?.count ?? 0) + 1,
-      uniqueClients: clientIds.size,
-      percentage: 0,
-      lastMovedAt: existing?.lastMovedAt && event.createdAt
-        ? existing.lastMovedAt > event.createdAt ? existing.lastMovedAt : event.createdAt
-        : existing?.lastMovedAt ?? event.createdAt,
-      clientIds,
-    });
+    const balanceMap = new Map<string, CsStageMovementBalance>();
+    for (const entry of input.precomputed.balances) {
+      const stage = stageById.get(entry.stage_id);
+      if (!stage) continue;
+      const existing = balanceMap.get(stage.id) ?? { stage, entries: 0, exits: 0, net: 0 };
+      existing.entries += entry.entries;
+      existing.exits += entry.exits;
+      existing.net = existing.entries - existing.exits;
+      balanceMap.set(stage.id, existing);
+    }
+    balances = [...balanceMap.values()]
+      .filter((balance) => balance.entries > 0 || balance.exits > 0)
+      .sort((a, b) => a.stage.order_index - b.stage.order_index);
+  } else {
+    const flowAccumulator = new Map<string, CsStageMovementFlow & { clientIds: Set<string> }>();
+    const balanceAccumulator = new Map<string, CsStageMovementBalance>();
 
-    if (!event.fromStage.isUnknown) {
-      const current = balanceAccumulator.get(event.fromStage.id) ?? { stage: event.fromStage, entries: 0, exits: 0, net: 0 };
-      current.exits += 1;
-      current.net = current.entries - current.exits;
-      balanceAccumulator.set(event.fromStage.id, current);
+    for (const stage of input.stages) {
+      balanceAccumulator.set(stage.id, { stage, entries: 0, exits: 0, net: 0 });
     }
 
-    if (!event.toStage.isUnknown) {
-      const current = balanceAccumulator.get(event.toStage.id) ?? { stage: event.toStage, entries: 0, exits: 0, net: 0 };
-      current.entries += 1;
-      current.net = current.entries - current.exits;
-      balanceAccumulator.set(event.toStage.id, current);
+    for (const event of events) {
+      const key = `${event.fromStage.id}->${event.toStage.id}`;
+      const existing = flowAccumulator.get(key);
+      const clientIds = existing?.clientIds ?? new Set<string>();
+      if (event.clienteId) clientIds.add(event.clienteId);
+
+      flowAccumulator.set(key, {
+        key,
+        label: `${event.fromStage.name} → ${event.toStage.name}`,
+        fromStage: event.fromStage,
+        toStage: event.toStage,
+        count: (existing?.count ?? 0) + 1,
+        uniqueClients: clientIds.size,
+        percentage: 0,
+        lastMovedAt: existing?.lastMovedAt && event.createdAt
+          ? existing.lastMovedAt > event.createdAt ? existing.lastMovedAt : event.createdAt
+          : existing?.lastMovedAt ?? event.createdAt,
+        clientIds,
+      });
+
+      if (!event.fromStage.isUnknown) {
+        const current = balanceAccumulator.get(event.fromStage.id) ?? { stage: event.fromStage, entries: 0, exits: 0, net: 0 };
+        current.exits += 1;
+        current.net = current.entries - current.exits;
+        balanceAccumulator.set(event.fromStage.id, current);
+      }
+
+      if (!event.toStage.isUnknown) {
+        const current = balanceAccumulator.get(event.toStage.id) ?? { stage: event.toStage, entries: 0, exits: 0, net: 0 };
+        current.entries += 1;
+        current.net = current.entries - current.exits;
+        balanceAccumulator.set(event.toStage.id, current);
+      }
     }
+
+    totalMovements = events.length;
+    uniqueClients = new Set(events.map((event) => event.clienteId).filter(Boolean)).size;
+    flows = [...flowAccumulator.values()]
+      .map(({ clientIds, ...flow }) => ({
+        ...flow,
+        uniqueClients: clientIds.size,
+        percentage: totalMovements > 0 ? roundPercent((flow.count / totalMovements) * 100) : 0,
+      }))
+      .sort((a, b) => b.count - a.count || String(b.lastMovedAt ?? "").localeCompare(String(a.lastMovedAt ?? "")));
+
+    balances = [...balanceAccumulator.values()]
+      .filter((balance) => balance.entries > 0 || balance.exits > 0)
+      .sort((a, b) => a.stage.order_index - b.stage.order_index);
   }
 
-  const totalMovements = events.length;
-  const flows = [...flowAccumulator.values()]
-    .map(({ clientIds, ...flow }) => ({
-      ...flow,
-      uniqueClients: clientIds.size,
-      percentage: totalMovements > 0 ? roundPercent((flow.count / totalMovements) * 100) : 0,
-    }))
-    .sort((a, b) => b.count - a.count || String(b.lastMovedAt ?? "").localeCompare(String(a.lastMovedAt ?? "")));
-
-  const balances = [...balanceAccumulator.values()]
-    .filter((balance) => balance.entries > 0 || balance.exits > 0)
-    .sort((a, b) => a.stage.order_index - b.stage.order_index);
   const biggestPositiveBalance = [...balances]
     .filter((balance) => balance.net > 0)
     .sort((a, b) => b.net - a.net || b.entries - a.entries)[0] ?? null;

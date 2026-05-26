@@ -25,6 +25,7 @@ type AuthContextValue = {
   isCsHead: boolean;
   isDev: boolean;
   isCsAccess: boolean;
+  isSettingsAccess: boolean;
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error?: string }>;
@@ -243,6 +244,8 @@ export function AuthProvider({ children, initialAuth }: { children: React.ReactN
     const isCsHead = profile?.role === "cs_head";
     const isDev = profile?.role === "dev";
     const isCsAccess = isAdmin || isCsHead || isDev;
+    // Configurações (etapas/SLAs/feriados): mesmo grupo do CS por enquanto.
+    const isSettingsAccess = isAdmin || isCsHead || isDev;
 
     return {
       loading,
@@ -257,6 +260,7 @@ export function AuthProvider({ children, initialAuth }: { children: React.ReactN
       isCsHead,
       isDev,
       isCsAccess,
+      isSettingsAccess,
       signIn,
       signOut,
       resetPassword,

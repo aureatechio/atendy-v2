@@ -206,12 +206,9 @@ function renderCell(column: ClientesColumnKey, row: ClienteListItem, openDrawer:
 }
 
 function getStoredViewMode(): ClientesViewMode {
-  if (typeof window === "undefined") return "kanban";
-  try {
-    return window.localStorage.getItem(VIEW_STORAGE_KEY) === "list" ? "list" : "kanban";
-  } catch {
-    return "kanban";
-  }
+  // Kanban é a visão principal — sempre abre com kanban.
+  // A preferência do usuário só é respeitada dentro da sessão (via setViewMode).
+  return "kanban";
 }
 
 export function ClientesDashboard({ initialData }: Props) {
