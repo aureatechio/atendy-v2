@@ -27,3 +27,10 @@ Migração do protótipo (2 páginas HTML) para Next.js + React + Tailwind CSS
 A camada atual de dados local está em `lib/data.ts`.
 
 Use `lib/api/compras.ts` e `lib/api/funil.ts` como pontos de integração para chamar endpoints sem mudar as páginas.
+
+## Etapas e subetapas
+
+Para contagem operacional de clientes por etapa atual, use `clientes_cadastro.current_stage_id`.
+As views oficiais sao `cliente_current_stage_counts` (etapa/subetapa exata) e
+`cliente_current_stage_root_counts` (etapa-mae agregada). Veja
+`docs/etapas-subetapas-contagem.md`.

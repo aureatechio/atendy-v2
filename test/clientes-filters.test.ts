@@ -231,7 +231,7 @@ describe("useClientesFilters", () => {
     expect(result.current.activeFilterChips.some((chip) => chip.key === "vigencia")).toBe(true);
   });
 
-  it("usa apenas etapas mae nas opções e filtra subetapas pela etapa pai", () => {
+  it("lista etapas e subetapas nas opções e filtra pela etapa exata", () => {
     const dataWithSubstages: ClientesData = {
       items: [
         {
@@ -279,12 +279,20 @@ describe("useClientesFilters", () => {
       useClientesFilters(dataWithSubstages, { now: new Date("2026-05-18T12:00:00.000Z") }),
     );
 
-    expect(result.current.options.stages).toEqual([{ id: "stage-producao", name: "Producao" }]);
+    expect(result.current.options.stages).toEqual([
+      { id: "stage-producao", name: "Producao" },
+      { id: "stage-design", name: "Producao / Design" },
+    ]);
 
     act(() => result.current.setFilter("stageId", "stage-producao"));
 
-    expect(result.current.rows.map((item) => item.id)).toEqual(["cliente-sub", "cliente-pai"]);
+    expect(result.current.rows.map((item) => item.id)).toEqual(["cliente-pai"]);
     expect(result.current.activeFilterChips.some((chip) => chip.label === "Etapa: Producao")).toBe(true);
+
+    act(() => result.current.setFilter("stageId", "stage-design"));
+
+    expect(result.current.rows.map((item) => item.id)).toEqual(["cliente-sub"]);
+    expect(result.current.activeFilterChips.some((chip) => chip.label === "Etapa: Producao / Design")).toBe(true);
   });
 
   it("ordena por valor e expõe chips removíveis", () => {

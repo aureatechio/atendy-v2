@@ -40,6 +40,15 @@ Use only the Supabase MCP connected to project `cfgeilnppnlyhwnabkox`.
 - Keep data-access changes behind the existing integration points in `lib/api/compras.ts` and `lib/api/funil.ts` when possible.
 - Prefer existing UI primitives in `components/ui/` and existing layout patterns in `components/layout/`.
 
+## Etapas, Subetapas e Contagens
+
+- For CS/business questions like "quantos clientes estao na etapa X hoje?", the source of truth is `clientes_cadastro.current_stage_id`.
+- Do not use `production_tasks.pipeline_stage_id`, `pipeline_stage_counts`, or `clients_with_stage` to answer current-client stage counts. Those objects can represent production task occupancy and are not the same metric.
+- Use `public.cliente_current_stage_counts` for exact counts by etapa/subetapa. A parent stage row counts only clients whose `current_stage_id` is that parent stage.
+- Use `public.cliente_current_stage_root_counts` only when the user explicitly asks for an aggregated parent-stage count including all subetapas.
+- In `/clientes`, the etapa filter must be exact by `stageId`; subetapas must remain selectable as first-class filter options.
+- In Kanban-style grouped views, grouping by etapa-mae is allowed only as a visual grouping. Card labels and exact counts must still respect the underlying `current_stage_id`.
+
 ## Testing Instructions
 
 - Run the full test suite with `pnpm test`.

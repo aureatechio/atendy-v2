@@ -1,4 +1,5 @@
 import { getFunilDados } from "@/lib/api/funil";
+import { getClienteCurrentStageCounts } from "@/lib/api/cliente-stage-counts";
 import { createClient } from "@/lib/supabase/server";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import {
@@ -28,6 +29,13 @@ export default async function HomePage() {
     funil = await getFunilDados();
   } catch (error) {
     console.warn("Dashboard: não foi possível carregar funil.", error);
+  }
+
+  let currentStageCounts: Awaited<ReturnType<typeof getClienteCurrentStageCounts>> = [];
+  try {
+    currentStageCounts = await getClienteCurrentStageCounts();
+  } catch (error) {
+    console.warn("Dashboard: não foi possível carregar contagem de etapas atuais.", error);
   }
 
   let responsaveis: ResponsavelOption[] = [];
@@ -125,30 +133,14 @@ export default async function HomePage() {
       })()
     : [];
 
-  const distribuicaoEtapas: EtapaDistribuicaoItem[] = funil
-    ? (() => {
-        const counts = new Map<string, Set<string>>();
-        for (const row of funil.rows) {
-          if (!row.s || !row.c) continue;
-          let set = counts.get(row.s);
-          if (!set) {
-            set = new Set<string>();
-            counts.set(row.s, set);
-          }
-          set.add(row.c);
-        }
-        return funil.stages_meta
-          .slice()
-          .sort((a, b) => a.order_index - b.order_index)
-          .map((stage) => ({
-            slug: stage.slug,
-            nome: stage.name,
-            cor: stage.color,
-            quantidade: counts.get(stage.slug)?.size ?? 0,
-          }))
-          .filter((etapa) => etapa.quantidade > 0);
-      })()
-    : [];
+  const distribuicaoEtapas: EtapaDistribuicaoItem[] = currentStageCounts
+    .map((stage) => ({
+      slug: stage.stageSlug,
+      nome: stage.parentStageName ? `${stage.parentStageName} / ${stage.stageName}` : stage.stageName,
+      cor: stage.stageColor ?? "#64748b",
+      quantidade: stage.activeClientCount,
+    }))
+    .filter((etapa) => etapa.quantidade > 0);
 
   return (
     <div className="space-y-4">

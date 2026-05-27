@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { isWithinRange, toDateRange } from "@/lib/period";
 import { normalizeText } from "@/lib/utils";
 import { parseClienteDate } from "@/lib/clientes/format";
-import { getActiveParentClienteStages, getClienteStageRootId } from "@/lib/clientes/stages";
+import { getActiveClienteStageFilterOptions } from "@/lib/clientes/stages";
 import type { SortDirection } from "@/lib/types";
 import type {
   ClienteListItem,
@@ -144,8 +144,6 @@ function matchesVigencia(item: ClienteListItem, vigencia: ClientesVigenciaFilter
 export function useClientesFilters(data: ClientesData, options: UseClientesFiltersOptions = {}) {
   const now = options.now ?? new Date();
   const [state, setState] = useState(() => defaultState(now));
-  const stageById = useMemo(() => new Map(data.stages.map((stage) => [stage.id, stage])), [data.stages]);
-
   const optionLists = useMemo(() => {
     const responsaveis = new Map<string, string>();
     for (const item of data.items) {
@@ -153,7 +151,7 @@ export function useClientesFilters(data: ClientesData, options: UseClientesFilte
     }
 
     return {
-      stages: getActiveParentClienteStages(data.stages).map((stage) => ({ id: stage.id, name: stage.name })),
+      stages: getActiveClienteStageFilterOptions(data.stages),
       responsaveis: [...responsaveis.entries()].sort((a, b) => a[1].localeCompare(b[1], "pt-BR")),
       segmentos: uniqueOptions(data.items, "segmentoNome"),
       subsegmentos: uniqueOptions(data.items, "subsegmentoNome"),
@@ -187,7 +185,7 @@ export function useClientesFilters(data: ClientesData, options: UseClientesFilte
       const itemDate = parseItemDate(getPeriodFieldDate(item, state.periodField));
       if (!isWithinRange(itemDate, periodRange)) return false;
 
-      if (state.stageId !== "all" && getClienteStageRootId(item.stageId, stageById) !== state.stageId) return false;
+      if (state.stageId !== "all" && item.stageId !== state.stageId) return false;
       if (state.responsavelId !== "all" && item.responsavelId !== state.responsavelId) return false;
       if (state.segmento !== "all" && item.segmentoNome !== state.segmento) return false;
       if (state.subsegmento !== "all" && item.subsegmentoNome !== state.subsegmento) return false;
@@ -225,7 +223,7 @@ export function useClientesFilters(data: ClientesData, options: UseClientesFilte
 
       return haystack.includes(query);
     });
-  }, [data.items, now, periodRange, stageById, state]);
+  }, [data.items, now, periodRange, state]);
 
   const rows = useMemo(() => {
     const withIndex = filtered.map((item, index) => ({ item, index }));
