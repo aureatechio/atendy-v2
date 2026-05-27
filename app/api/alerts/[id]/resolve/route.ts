@@ -4,6 +4,13 @@ import {
   getAlertAuthContext,
   resolveAlertForUser,
 } from "@/lib/alerts/server";
+import {
+  createAuditOperationId,
+  getAuditActor,
+  logAuditEvent,
+  type AuditJsonObject,
+} from "@/lib/audit/logger";
+import { getAuditRequestContext } from "@/lib/audit/request-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,10 +30,39 @@ export async function POST(
     return NextResponse.json({ error: alert.error }, { status: alert.status });
   }
 
+  const operationId = createAuditOperationId();
+  const [actor, context] = await Promise.all([
+    getAuditActor(auth.context.user),
+    getAuditRequestContext(),
+  ]);
+
   const result = await resolveAlertForUser(auth.context, alert.alert);
   if (!result.ok) {
+    await logAuditEvent({
+      action: "alert.resolved",
+      actor,
+      before: alert.alert as unknown as AuditJsonObject,
+      clienteId: alert.alert.cliente?.id ?? null,
+      context,
+      entityId: id,
+      entityType: "sla_alert",
+      errorMessage: result.error,
+      operationId,
+      status: "failure",
+    });
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
+
+  await logAuditEvent({
+    action: "alert.resolved",
+    actor,
+    before: alert.alert as unknown as AuditJsonObject,
+    clienteId: alert.alert.cliente?.id ?? null,
+    context,
+    entityId: id,
+    entityType: "sla_alert",
+    operationId,
+  });
 
   return NextResponse.json({ ok: true });
 }

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildLoginRedirect, canAccessAdmin, canAccessCS, getProtectedAuthRedirect } from "@/lib/auth/guards";
+import {
+  buildLoginRedirect,
+  canAccessAdmin,
+  canAccessAudit,
+  canAccessCS,
+  getProtectedAuthRedirect,
+} from "@/lib/auth/guards";
 import { roleHasCapability } from "@/lib/auth/capabilities";
 import type { AuthSnapshot } from "@/lib/auth/session";
 import type { Profile } from "@/lib/auth/types";
@@ -80,6 +86,20 @@ describe("auth guards", () => {
     expect(canAccessCS(make("producao"))).toBe(false);
     expect(canAccessCS({ status: "anonymous", user: null, profile: null })).toBe(false);
   });
+
+  it("allows only admin and dev into audit routes", () => {
+    const make = (role: Profile["role"], id = "user-x"): AuthSnapshot => ({
+      status: "active",
+      user: { id, email: `${role}@test.local` },
+      profile: { ...profile, id, role },
+    });
+
+    expect(canAccessAudit(make("admin"))).toBe(true);
+    expect(canAccessAudit(make("dev"))).toBe(true);
+    expect(canAccessAudit(make("cs_head"))).toBe(false);
+    expect(canAccessAudit(make("supervisor"))).toBe(false);
+    expect(canAccessAudit({ status: "anonymous", user: null, profile: null })).toBe(false);
+  });
 });
 
 describe("capabilities", () => {
@@ -87,6 +107,7 @@ describe("capabilities", () => {
     expect(roleHasCapability("admin", "adminOnly")).toBe(true);
     expect(roleHasCapability("admin", "adminArea")).toBe(true);
     expect(roleHasCapability("admin", "csArea")).toBe(true);
+    expect(roleHasCapability("admin", "auditArea")).toBe(true);
   });
 
   it("supervisor has adminArea but not adminOnly nor csArea", () => {
@@ -101,6 +122,8 @@ describe("capabilities", () => {
       expect(roleHasCapability(role, "adminArea")).toBe(false);
       expect(roleHasCapability(role, "adminOnly")).toBe(false);
     }
+    expect(roleHasCapability("dev", "auditArea")).toBe(true);
+    expect(roleHasCapability("cs_head", "auditArea")).toBe(false);
   });
 
   it("attendant, producao and designer have no capabilities", () => {

@@ -28,6 +28,10 @@ export function getSupabaseServiceRoleKey() {
   return key;
 }
 
+export function getImpersonationSecret() {
+  return process.env.IMPERSONATION_SECRET ?? getSupabaseServiceRoleKey();
+}
+
 export function getCrmSupabaseUrl() {
   const url = process.env.CRM_SUPABASE_URL;
 

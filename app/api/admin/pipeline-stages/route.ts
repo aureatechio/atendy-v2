@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { createAuditOperationId, getAuditActor, logAuditEvent } from "@/lib/audit/logger";
+import { getAuditRequestContext } from "@/lib/audit/request-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminAccess } from "@/lib/auth/requireAdmin";
@@ -35,6 +37,8 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
+  const operationId = createAuditOperationId();
+  const [actor, context] = await Promise.all([getAuditActor(access.user), getAuditRequestContext()]);
   const payload = {
     ...parsed.data,
     updated_at: new Date().toISOString(),
@@ -46,8 +50,28 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !data) {
+    await logAuditEvent({
+      action: "settings.stage_created",
+      actor,
+      context,
+      entityType: "client_pipeline_stage",
+      errorMessage: error?.message ?? "Nao foi possivel criar a etapa.",
+      metadata: { slug: parsed.data.slug },
+      operationId,
+      status: "failure",
+    });
     return NextResponse.json({ error: error?.message ?? "Nao foi possivel criar a etapa." }, { status: 400 });
   }
+
+  await logAuditEvent({
+    action: "settings.stage_created",
+    actor,
+    after: data,
+    context,
+    entityId: data.id,
+    entityType: "client_pipeline_stage",
+    operationId,
+  });
 
   return NextResponse.json({ stage: data });
 }

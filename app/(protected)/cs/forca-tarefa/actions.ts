@@ -1,6 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { buildClientStageHistoryRow } from "@/lib/audit/history";
+import { createAuditOperationId, getAuditActor, logAuditEvents } from "@/lib/audit/logger";
+import { getAuditRequestContext } from "@/lib/audit/request-context";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthSnapshot } from "@/lib/auth/get-auth-snapshot";
 import { canAccessCS } from "@/lib/auth/guards";
@@ -40,8 +43,9 @@ export async function reassignBatch(input: ReassignBatchInput): Promise<Reassign
 
   const supabase = await createClient();
   const userId = snapshot.user.id;
-  const operationId = crypto.randomUUID();
+  const operationId = createAuditOperationId();
   const now = new Date().toISOString();
+  const trimmedReason = reason?.trim() || null;
 
   // Agrupa updates por novo responsável para reduzir round-trips
   const grouped = new Map<string, string[]>();
@@ -74,21 +78,23 @@ export async function reassignBatch(input: ReassignBatchInput): Promise<Reassign
     }
   }
 
-  const historyRows = assignments.map((a) => ({
-    cliente_id: a.clienteId,
-    from_stage_id: a.stageId,
-    to_stage_id: a.stageId,
-    from_assigned_to: a.fromAssigneeId,
-    to_assigned_to: a.toAssigneeId,
-    changed_by: userId,
-    action_type: "bulk_reassignment",
-    reason: reason?.trim() || null,
-    metadata: {
-      operation_id: operationId,
-      batch_size: assignments.length,
-      source_stage_id: a.stageId,
-    },
-  }));
+  const historyRows = assignments.map((a) =>
+    buildClientStageHistoryRow({
+      actionType: "bulk_reassignment",
+      changedBy: userId,
+      clienteId: a.clienteId,
+      fromAssignedTo: a.fromAssigneeId,
+      fromStageId: a.stageId,
+      metadata: {
+        batch_size: assignments.length,
+        source_stage_id: a.stageId,
+      },
+      operationId,
+      reason: trimmedReason,
+      toAssignedTo: a.toAssigneeId,
+      toStageId: a.stageId,
+    }),
+  );
 
   const { error: historyError } = await supabase.from("client_stage_history").insert(historyRows);
   if (historyError) {
@@ -99,6 +105,43 @@ export async function reassignBatch(input: ReassignBatchInput): Promise<Reassign
       updated: assignments.length,
     };
   }
+
+  const [actor, context] = await Promise.all([getAuditActor(snapshot.user), getAuditRequestContext()]);
+  await logAuditEvents([
+    {
+      action: "cliente.bulk_reassigned",
+      actor,
+      context,
+      entityType: "cliente_batch",
+      metadata: {
+        batch_size: assignments.length,
+        grouped_assignees: grouped.size,
+        reason: trimmedReason,
+      },
+      operationId,
+    },
+    ...assignments.map((assignment) => ({
+      action: "cliente.responsavel_changed",
+      actor,
+      after: {
+        assigned_to: assignment.toAssigneeId,
+        responsavel_atendimento: assignment.toAssigneeId,
+      },
+      before: {
+        assigned_to: assignment.fromAssigneeId,
+        responsavel_atendimento: assignment.fromAssigneeId,
+      },
+      clienteId: assignment.clienteId,
+      context,
+      entityId: assignment.clienteId,
+      entityType: "cliente",
+      metadata: {
+        batch_size: assignments.length,
+        source_stage_id: assignment.stageId,
+      },
+      operationId,
+    })),
+  ]);
 
   revalidatePath("/funil");
   revalidatePath("/cs/forca-tarefa");

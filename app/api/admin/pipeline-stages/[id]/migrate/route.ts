@@ -1,8 +1,29 @@
 import { NextResponse } from "next/server";
+import { buildClientStageHistoryRow, buildTaskHistoryRow } from "@/lib/audit/history";
+import {
+  createAuditOperationId,
+  getAuditActor,
+  logAuditEvent,
+  logAuditEvents,
+  type AuditEventInput,
+} from "@/lib/audit/logger";
+import { getAuditRequestContext } from "@/lib/audit/request-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminAccess } from "@/lib/auth/requireAdmin";
 import { migrateStageSchema } from "@/lib/sla/validation";
 import { COMPLETED_TASK_STATUS } from "@/lib/production-tasks/status";
+
+type ClienteMigrationRow = {
+  id: string;
+  current_stage_id: string | null;
+};
+
+type TaskMigrationRow = {
+  cliente_id: string | null;
+  id: string;
+  pipeline_stage_id: string | null;
+  title: string | null;
+};
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await requireAdminAccess({ capability: "settingsArea" });
@@ -31,6 +52,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const admin = createAdminClient();
   const userId = access.user.id;
+  const operationId = createAuditOperationId();
+  const [actor, context] = await Promise.all([getAuditActor(access.user), getAuditRequestContext()]);
+
+  async function logFailure(message: string, metadata: Record<string, unknown> = {}) {
+    await logAuditEvent({
+      action: "settings.stage_migration_run",
+      actor,
+      context,
+      entityId: id,
+      entityType: "client_pipeline_stage",
+      errorMessage: message,
+      metadata: {
+        origin_stage_id: id,
+        target_stage_id,
+        ...metadata,
+      },
+      operationId,
+      status: "failure",
+    });
+  }
 
   // Valida etapas de origem e destino
   const [originRes, targetRes] = await Promise.all([
@@ -47,9 +88,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   ]);
 
   if (originRes.error || !originRes.data) {
+    await logFailure("Etapa de origem não encontrada.", { stage: "validate_origin" });
     return NextResponse.json({ error: "Etapa de origem não encontrada." }, { status: 404 });
   }
   if (targetRes.error || !targetRes.data) {
+    await logFailure("Etapa de destino não encontrada.", { stage: "validate_target" });
     return NextResponse.json({ error: "Etapa de destino não encontrada." }, { status: 404 });
   }
   if (!targetRes.data.is_active) {
@@ -68,11 +111,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // Busca clientes na etapa de origem
   const { data: clientes, error: clientesError } = await admin
     .from("clientes_cadastro")
-    .select("id")
+    .select("id,current_stage_id")
     .eq("current_stage_id", id)
     .neq("is_archived", true);
 
   if (clientesError) {
+    await logFailure(clientesError.message, { stage: "list_clientes" });
     return NextResponse.json(
       { error: `Falha ao listar clientes: ${clientesError.message}` },
       { status: 500 },
@@ -81,7 +125,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   let clientesMigrated = 0;
   if (clientes && clientes.length > 0) {
-    const clienteIds = clientes.map((c) => c.id);
+    const clienteRows = clientes as ClienteMigrationRow[];
+    const clienteIds = clienteRows.map((c) => c.id);
 
     const { error: clientesUpdateError } = await admin
       .from("clientes_cadastro")
@@ -93,6 +138,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .in("id", clienteIds);
 
     if (clientesUpdateError) {
+      await logFailure(clientesUpdateError.message, { stage: "update_clientes", clientes_count: clienteIds.length });
       return NextResponse.json(
         { error: `Falha ao migrar clientes: ${clientesUpdateError.message}` },
         { status: 500 },
@@ -100,15 +146,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     // Registra histórico (best-effort)
-    const historyRows = clienteIds.map((clienteId) => ({
-      cliente_id: clienteId,
-      from_stage_id: id,
-      to_stage_id: target_stage_id,
-      changed_by: userId,
-      action_type: "stage_change",
-      reason: migrationReason,
-      metadata: { migration: true, origin_stage_id: id },
-    }));
+    const historyRows = clienteRows.map((cliente) =>
+      buildClientStageHistoryRow({
+        actionType: "stage_change",
+        changedBy: userId,
+        clienteId: cliente.id,
+        fromStageId: cliente.current_stage_id,
+        metadata: { migration: true, origin_stage_id: id },
+        operationId,
+        reason: migrationReason,
+        toStageId: target_stage_id,
+      }),
+    );
 
     const { error: historyError } = await admin
       .from("client_stage_history")
@@ -123,11 +172,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // Tasks de produção não concluídas
   const { data: tasks, error: tasksError } = await admin
     .from("production_tasks")
-    .select("id")
+    .select("id,cliente_id,pipeline_stage_id,title")
     .eq("pipeline_stage_id", id)
     .neq("status", COMPLETED_TASK_STATUS);
 
   if (tasksError) {
+    await logFailure(tasksError.message, { stage: "list_tasks" });
     return NextResponse.json(
       { error: `Falha ao listar tasks: ${tasksError.message}` },
       { status: 500 },
@@ -136,7 +186,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   let tasksMigrated = 0;
   if (tasks && tasks.length > 0) {
-    const taskIds = tasks.map((t) => t.id);
+    const taskRows = tasks as TaskMigrationRow[];
+    const taskIds = taskRows.map((t) => t.id);
 
     const { error: tasksUpdateError } = await admin
       .from("production_tasks")
@@ -147,20 +198,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .in("id", taskIds);
 
     if (tasksUpdateError) {
+      await logFailure(tasksUpdateError.message, { stage: "update_tasks", tasks_count: taskIds.length });
       return NextResponse.json(
         { error: `Falha ao migrar tasks: ${tasksUpdateError.message}` },
         { status: 500 },
       );
     }
 
-    const taskHistoryRows = taskIds.map((taskId) => ({
-      task_id: taskId,
-      from_stage_id: id,
-      to_stage_id: target_stage_id,
-      changed_by: userId,
-      action_type: "stage_change",
-      metadata: { migration: true, origin_stage_id: id, reason: migrationReason },
-    }));
+    const taskHistoryRows = taskRows.map((task) =>
+      buildTaskHistoryRow({
+        actionType: "stage_change",
+        changedBy: userId,
+        clienteId: task.cliente_id,
+        fromStageId: task.pipeline_stage_id,
+        metadata: { migration: true, origin_stage_id: id, reason: migrationReason },
+        operationId,
+        taskId: task.id,
+        toStageId: target_stage_id,
+      }),
+    );
 
     const { error: taskHistoryError } = await admin
       .from("task_history")
@@ -170,6 +226,66 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     tasksMigrated = taskIds.length;
   }
+
+  const clienteRows = ((clientes ?? []) as ClienteMigrationRow[]);
+  const taskRows = ((tasks ?? []) as TaskMigrationRow[]);
+  const events: AuditEventInput[] = [
+    {
+      action: "settings.stage_migration_run",
+      actor,
+      after: {
+        target_stage_id,
+      },
+      before: {
+        origin_stage_id: id,
+      },
+      context,
+      entityId: id,
+      entityType: "client_pipeline_stage",
+      metadata: {
+        clientes_migrated: clientesMigrated,
+        origin_stage_name: originRes.data.name,
+        reason: migrationReason,
+        target_stage_name: targetRes.data.name,
+        tasks_migrated: tasksMigrated,
+      },
+      operationId,
+    },
+    ...clienteRows.map((cliente) => ({
+      action: "cliente.stage_changed",
+      actor,
+      after: { current_stage_id: target_stage_id },
+      before: { current_stage_id: cliente.current_stage_id },
+      clienteId: cliente.id,
+      context,
+      entityId: cliente.id,
+      entityType: "cliente",
+      metadata: {
+        migration: true,
+        origin_stage_id: id,
+        reason: migrationReason,
+      },
+      operationId,
+    })),
+    ...taskRows.map((task) => ({
+      action: "task.stage_changed",
+      actor,
+      after: { pipeline_stage_id: target_stage_id },
+      before: { pipeline_stage_id: task.pipeline_stage_id },
+      clienteId: task.cliente_id,
+      context,
+      entityId: task.id,
+      entityType: "production_task",
+      metadata: {
+        migration: true,
+        origin_stage_id: id,
+        reason: migrationReason,
+        title: task.title,
+      },
+      operationId,
+    })),
+  ];
+  await logAuditEvents(events);
 
   return NextResponse.json({
     ok: true,

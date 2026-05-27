@@ -5,6 +5,7 @@ import { SiteShell } from "@/components/layout/site-shell";
 import { AuthProvider } from "@/hooks/use-auth";
 import { getAuthSnapshot } from "@/lib/auth/get-auth-snapshot";
 import { getProtectedAuthRedirect } from "@/lib/auth/guards";
+import { IMPERSONATION_COOKIE, decodeImpersonationCookie } from "@/lib/auth/impersonation";
 import { getNewAssignmentsTodayCount } from "@/lib/api/notifications";
 
 async function getCurrentPathname() {
@@ -30,11 +31,14 @@ export default async function ProtectedLayout({ children }: { children: React.Re
       ? await getNewAssignmentsTodayCount(snapshot.user.id)
       : 0;
 
+  const impersonation = decodeImpersonationCookie(cookieStore.get(IMPERSONATION_COOKIE)?.value);
+
   return (
     <AuthProvider initialAuth={snapshot}>
       <SiteShell
         initialSidebarCollapsed={sidebarCollapsed}
         newAssignmentsCount={newAssignmentsCount}
+        impersonation={impersonation ? { returnToName: impersonation.impersonatorName } : null}
       >
         {children}
       </SiteShell>

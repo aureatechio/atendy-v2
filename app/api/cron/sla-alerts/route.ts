@@ -1,4 +1,11 @@
 import { NextResponse } from "next/server";
+import {
+  createAuditOperationId,
+  createSystemAuditActor,
+  logAuditEvent,
+  logAuditEvents,
+  type AuditEventInput,
+} from "@/lib/audit/logger";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   evaluateStageSla,
@@ -30,6 +37,8 @@ export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 1000;
 const WRITE_CHUNK_SIZE = 500;
+const alertColumns =
+  "id,type,cliente_id,stage_id,task_id,status,entered_at,deadline,fired_at,last_seen_at,resolved_at,resolved_by,snoozed_until";
 
 interface HolidayRow {
   date: string;
@@ -44,6 +53,27 @@ interface ClienteRow {
 interface LastInteractionRow {
   cliente_id: string;
   last_interaction_at: string | null;
+}
+
+type AlertAuditRow = OpenAlert & {
+  fired_at?: string | null;
+  last_seen_at?: string | null;
+  resolved_at?: string | null;
+  resolved_by?: string | null;
+  snoozed_until?: string | null;
+};
+
+function alertAuditSnapshot(alert: Partial<AlertAuditRow>) {
+  return {
+    cliente_id: alert.cliente_id ?? null,
+    deadline: alert.deadline ?? null,
+    entered_at: alert.entered_at ?? null,
+    id: alert.id ?? null,
+    stage_id: alert.stage_id ?? null,
+    status: alert.status ?? null,
+    task_id: alert.task_id ?? null,
+    type: alert.type ?? null,
+  };
 }
 
 async function fetchAll<T>(
@@ -84,6 +114,26 @@ export async function GET(req: Request) {
   }
 
   const supabase = createAdminClient();
+  const operationId = createAuditOperationId();
+  const actor = createSystemAuditActor("cron:sla-alerts");
+  const context = {
+    requestPath: "/api/cron/sla-alerts",
+    userAgent: req.headers.get("user-agent"),
+  };
+
+  async function fail(stage: string, message: string, status = 500, metadata: Record<string, unknown> = {}) {
+    await logAuditEvent({
+      action: "alert.cron_failed",
+      actor,
+      context,
+      entityType: "sla_alerts_cron",
+      errorMessage: message,
+      metadata: { stage, ...metadata },
+      operationId,
+      status: "failure",
+    });
+    return NextResponse.json({ error: metadata.publicError ?? message, detail: message }, { status });
+  }
 
   let stages: (StageRow & FollowupStageRow)[];
   let stageTasks: TaskRow[];
@@ -156,10 +206,9 @@ export async function GET(req: Request) {
         ),
       ]);
   } catch (err) {
-    return NextResponse.json(
-      { error: "Failed to load source data", detail: (err as Error).message },
-      { status: 500 },
-    );
+    return fail("load_source_data", (err as Error).message, 500, {
+      publicError: "Failed to load source data",
+    });
   }
 
   const holidaySet = new Set(holidayRows.map((h) => h.date));
@@ -214,10 +263,9 @@ export async function GET(req: Request) {
         .range(from, to),
     );
   } catch (err) {
-    return NextResponse.json(
-      { error: "Failed to load open alerts", detail: (err as Error).message },
-      { status: 500 },
-    );
+    return fail("load_open_alerts", (err as Error).message, 500, {
+      publicError: "Failed to load open alerts",
+    });
   }
 
   const openAlerts: OpenAlert[] = openAlertsRaw.map((a) => ({
@@ -233,30 +281,55 @@ export async function GET(req: Request) {
 
   const ops = diffAlerts(snapshot, openAlerts);
   const now = new Date().toISOString();
+  const auditEvents: AuditEventInput[] = [];
 
   if (ops.toInsert.length > 0) {
-    const { error } = await supabase.from("sla_alerts").insert(
-      ops.toInsert.map((row) => ({
-        ...row,
-        fired_at: now,
-        last_seen_at: now,
-      })),
-    );
+    const insertRows = ops.toInsert.map((row) => ({
+      ...row,
+      fired_at: now,
+      last_seen_at: now,
+    }));
+    const { data: insertedAlerts, error } = await supabase.from("sla_alerts").insert(
+      insertRows,
+    ).select(alertColumns);
     if (error) {
-      return NextResponse.json(
-        {
-          error: "Failed to insert alerts",
-          detail: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        },
-        { status: 500 },
+      return fail("insert_alerts", error.message, 500, {
+        insert_count: ops.toInsert.length,
+        publicError: "Failed to insert alerts",
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
+    }
+    for (const alert of (insertedAlerts ?? []) as AlertAuditRow[]) {
+      auditEvents.push({
+        action: "alert.created",
+        actor,
+        after: alertAuditSnapshot(alert),
+        clienteId: alert.cliente_id,
+        context,
+        entityId: alert.id,
+        entityType: "sla_alert",
+        operationId,
+      });
+    }
+    if ((insertedAlerts ?? []).length === 0) {
+      auditEvents.push(
+        ...insertRows.map((row) => ({
+          action: "alert.created",
+          actor,
+          after: alertAuditSnapshot(row as AlertAuditRow),
+          clienteId: row.cliente_id,
+          context,
+          entityType: "sla_alert",
+          operationId,
+        })),
       );
     }
   }
 
   for (const upd of ops.toUpdate) {
+    const before = openAlerts.find((alert) => alert.id === upd.id) ?? null;
     const { error } = await supabase
       .from("sla_alerts")
       .update({
@@ -267,11 +340,28 @@ export async function GET(req: Request) {
       })
       .eq("id", upd.id);
     if (error) {
-      return NextResponse.json(
-        { error: "Failed to update alert", detail: error.message, id: upd.id },
-        { status: 500 },
-      );
+      return fail("update_alert", error.message, 500, {
+        alert_id: upd.id,
+        publicError: "Failed to update alert",
+      });
     }
+    auditEvents.push({
+      action: "alert.status_changed",
+      actor,
+      after: alertAuditSnapshot({
+        ...(before ?? {}),
+        deadline: upd.deadline,
+        entered_at: upd.entered_at,
+        id: upd.id,
+        status: upd.status,
+      } as AlertAuditRow),
+      before: before ? alertAuditSnapshot(before as AlertAuditRow) : null,
+      clienteId: before?.cliente_id ?? null,
+      context,
+      entityId: upd.id,
+      entityType: "sla_alert",
+      operationId,
+    });
   }
 
   if (ops.toTouch.length > 0) {
@@ -281,10 +371,10 @@ export async function GET(req: Request) {
         .update({ last_seen_at: now })
         .in("id", ids);
       if (error) {
-        return NextResponse.json(
-          { error: "Failed to touch alerts", detail: error.message },
-          { status: 500 },
-        );
+        return fail("touch_alerts", error.message, 500, {
+          publicError: "Failed to touch alerts",
+          touched_count: ops.toTouch.length,
+        });
       }
     }
   }
@@ -296,13 +386,47 @@ export async function GET(req: Request) {
         .update({ resolved_at: now })
         .in("id", ids);
       if (error) {
-        return NextResponse.json(
-          { error: "Failed to resolve alerts", detail: error.message },
-          { status: 500 },
-        );
+        return fail("resolve_alerts", error.message, 500, {
+          publicError: "Failed to resolve alerts",
+          resolved_count: ops.toResolve.length,
+        });
       }
     }
+    for (const id of ops.toResolve) {
+      const before = openAlerts.find((alert) => alert.id === id) ?? null;
+      auditEvents.push({
+        action: "alert.auto_resolved",
+        actor,
+        after: before ? { ...alertAuditSnapshot(before as AlertAuditRow), resolved_at: now } : { id, resolved_at: now },
+        before: before ? alertAuditSnapshot(before as AlertAuditRow) : null,
+        clienteId: before?.cliente_id ?? null,
+        context,
+        entityId: id,
+        entityType: "sla_alert",
+        operationId,
+      });
+    }
   }
+
+  auditEvents.unshift({
+    action: "alert.cron_run",
+    actor,
+    context,
+    entityType: "sla_alerts_cron",
+    metadata: {
+      inserted: ops.toInsert.length,
+      resolved: ops.toResolve.length,
+      snapshot_total: snapshot.length,
+      stage_sla: stageSlaAlerts.length,
+      status_updated: ops.toUpdate.length,
+      task_overdue: taskOverdueAlerts.length,
+      followup: followupAlerts.length,
+      contract_expiry: contractExpiryAlerts.length,
+      touched_count: ops.toTouch.length,
+    },
+    operationId,
+  });
+  await logAuditEvents(auditEvents);
 
   return NextResponse.json({
     ok: true,
