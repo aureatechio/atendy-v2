@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getAuditActor, logAuditEvents } from "@/lib/audit/logger";
+import { getAuditRequestContext } from "@/lib/audit/request-context";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthSnapshot } from "@/lib/auth/get-auth-snapshot";
 import { canAccessCS } from "@/lib/auth/guards";
@@ -42,6 +44,7 @@ export async function reassignBatch(input: ReassignBatchInput): Promise<Reassign
   const userId = snapshot.user.id;
   const operationId = crypto.randomUUID();
   const now = new Date().toISOString();
+  const trimmedReason = reason?.trim() || null;
 
   // Agrupa updates por novo responsável para reduzir round-trips
   const grouped = new Map<string, string[]>();
@@ -82,7 +85,7 @@ export async function reassignBatch(input: ReassignBatchInput): Promise<Reassign
     to_assigned_to: a.toAssigneeId,
     changed_by: userId,
     action_type: "bulk_reassignment",
-    reason: reason?.trim() || null,
+    reason: trimmedReason,
     metadata: {
       operation_id: operationId,
       batch_size: assignments.length,
@@ -99,6 +102,43 @@ export async function reassignBatch(input: ReassignBatchInput): Promise<Reassign
       updated: assignments.length,
     };
   }
+
+  const [actor, context] = await Promise.all([getAuditActor(snapshot.user), getAuditRequestContext()]);
+  await logAuditEvents([
+    {
+      action: "cliente.bulk_reassigned",
+      actor,
+      context,
+      entityType: "cliente_batch",
+      metadata: {
+        batch_size: assignments.length,
+        grouped_assignees: grouped.size,
+        reason: trimmedReason,
+      },
+      operationId,
+    },
+    ...assignments.map((assignment) => ({
+      action: "cliente.responsavel_changed",
+      actor,
+      after: {
+        assigned_to: assignment.toAssigneeId,
+        responsavel_atendimento: assignment.toAssigneeId,
+      },
+      before: {
+        assigned_to: assignment.fromAssigneeId,
+        responsavel_atendimento: assignment.fromAssigneeId,
+      },
+      clienteId: assignment.clienteId,
+      context,
+      entityId: assignment.clienteId,
+      entityType: "cliente",
+      metadata: {
+        batch_size: assignments.length,
+        source_stage_id: assignment.stageId,
+      },
+      operationId,
+    })),
+  ]);
 
   revalidatePath("/funil");
   revalidatePath("/cs/forca-tarefa");

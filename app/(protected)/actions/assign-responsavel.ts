@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getAuditActor, logAuditEvent } from "@/lib/audit/logger";
+import { getAuditRequestContext } from "@/lib/audit/request-context";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthSnapshot } from "@/lib/auth/get-auth-snapshot";
 
@@ -42,6 +44,7 @@ export async function assignResponsavel(
     return { ok: false, error: "Cliente não encontrado." };
   }
 
+  const operationId = crypto.randomUUID();
   const now = new Date().toISOString();
   const { error: updateError } = await supabase
     .from("clientes_cadastro")
@@ -64,6 +67,28 @@ export async function assignResponsavel(
     to_assigned_to: responsavelId,
     changed_by: snapshot.user.id,
     action_type: "reassignment",
+    metadata: {
+      operation_id: operationId,
+    },
+  });
+
+  const [actor, context] = await Promise.all([getAuditActor(snapshot.user), getAuditRequestContext()]);
+  await logAuditEvent({
+    action: "cliente.responsavel_changed",
+    actor,
+    after: {
+      assigned_to: responsavelId,
+      responsavel_atendimento: responsavelId,
+    },
+    before: {
+      assigned_to: clienteAtual.responsavel_atendimento,
+      responsavel_atendimento: clienteAtual.responsavel_atendimento,
+    },
+    clienteId,
+    context,
+    entityId: clienteId,
+    entityType: "cliente",
+    operationId,
   });
 
   revalidatePath("/");
