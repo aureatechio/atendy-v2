@@ -36,6 +36,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 1000;
+const WRITE_CHUNK_SIZE = 500;
 const alertColumns =
   "id,type,cliente_id,stage_id,task_id,status,entered_at,deadline,fired_at,last_seen_at,resolved_at,resolved_by,snoozed_until";
 
@@ -90,6 +91,14 @@ async function fetchAll<T>(
     if (page.length < PAGE_SIZE) break;
   }
   return rows;
+}
+
+function chunks<T>(items: T[], size = WRITE_CHUNK_SIZE) {
+  const out: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    out.push(items.slice(index, index + size));
+  }
+  return out;
 }
 
 export async function GET(req: Request) {
@@ -233,17 +242,33 @@ export async function GET(req: Request) {
     ...contractExpiryAlerts,
   ];
 
-  const { data: openAlertsRaw, error: openErr } = await supabase
-    .from("sla_alerts")
-    .select("id,type,cliente_id,stage_id,task_id,status,entered_at,deadline")
-    .is("resolved_at", null);
-  if (openErr) {
-    return fail("load_open_alerts", openErr.message, 500, {
+  let openAlertsRaw: Array<{
+    id: string;
+    type: string | null;
+    cliente_id: string;
+    stage_id: string | null;
+    task_id: string | null;
+    status: string;
+    entered_at: string;
+    deadline: string;
+  }>;
+
+  try {
+    openAlertsRaw = await fetchAll((from, to) =>
+      supabase
+        .from("sla_alerts")
+        .select("id,type,cliente_id,stage_id,task_id,status,entered_at,deadline")
+        .is("resolved_at", null)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
+  } catch (err) {
+    return fail("load_open_alerts", (err as Error).message, 500, {
       publicError: "Failed to load open alerts",
     });
   }
 
-  const openAlerts: OpenAlert[] = (openAlertsRaw ?? []).map((a) => ({
+  const openAlerts: OpenAlert[] = openAlertsRaw.map((a) => ({
     id: a.id as string,
     type: (a.type as AlertType) ?? "stage_sla",
     cliente_id: a.cliente_id as string,
@@ -271,6 +296,9 @@ export async function GET(req: Request) {
       return fail("insert_alerts", error.message, 500, {
         insert_count: ops.toInsert.length,
         publicError: "Failed to insert alerts",
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
       });
     }
     for (const alert of (insertedAlerts ?? []) as AlertAuditRow[]) {
@@ -337,28 +365,32 @@ export async function GET(req: Request) {
   }
 
   if (ops.toTouch.length > 0) {
-    const { error } = await supabase
-      .from("sla_alerts")
-      .update({ last_seen_at: now })
-      .in("id", ops.toTouch);
-    if (error) {
-      return fail("touch_alerts", error.message, 500, {
-        publicError: "Failed to touch alerts",
-        touched_count: ops.toTouch.length,
-      });
+    for (const ids of chunks(ops.toTouch)) {
+      const { error } = await supabase
+        .from("sla_alerts")
+        .update({ last_seen_at: now })
+        .in("id", ids);
+      if (error) {
+        return fail("touch_alerts", error.message, 500, {
+          publicError: "Failed to touch alerts",
+          touched_count: ops.toTouch.length,
+        });
+      }
     }
   }
 
   if (ops.toResolve.length > 0) {
-    const { error } = await supabase
-      .from("sla_alerts")
-      .update({ resolved_at: now })
-      .in("id", ops.toResolve);
-    if (error) {
-      return fail("resolve_alerts", error.message, 500, {
-        publicError: "Failed to resolve alerts",
-        resolved_count: ops.toResolve.length,
-      });
+    for (const ids of chunks(ops.toResolve)) {
+      const { error } = await supabase
+        .from("sla_alerts")
+        .update({ resolved_at: now })
+        .in("id", ids);
+      if (error) {
+        return fail("resolve_alerts", error.message, 500, {
+          publicError: "Failed to resolve alerts",
+          resolved_count: ops.toResolve.length,
+        });
+      }
     }
     for (const id of ops.toResolve) {
       const before = openAlerts.find((alert) => alert.id === id) ?? null;

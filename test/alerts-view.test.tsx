@@ -126,6 +126,14 @@ describe("AlertsView", () => {
     ).toHaveValue("contract_expiry");
     expect(screen.getAllByText("Fim de vigência").length).toBeGreaterThan(0);
     expect(screen.getByText("Vigência do contrato")).toBeInTheDocument();
+
+    fireEvent.change(typeSelect, {
+      target: { value: "contract_expiry" },
+    });
+
+    expect(screen.getByText("Cliente Carla")).toBeInTheDocument();
+    expect(screen.queryByText("Cliente Ana")).not.toBeInTheDocument();
+    expect(screen.queryByText("Cliente Bruno")).not.toBeInTheDocument();
   });
 
   it("explica quando o filtro de fim de vigência não tem alertas gerados", () => {

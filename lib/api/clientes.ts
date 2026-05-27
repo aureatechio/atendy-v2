@@ -78,7 +78,7 @@ export async function getClientesDados() {
     fetchSupabaseAll<ClienteRawStage>((from, to) =>
       supabase
         .from("client_pipeline_stages")
-        .select("id,name,slug,color,order_index,is_final,is_active")
+        .select("id,name,slug,color,order_index,is_final,is_active,parent_stage_id")
         .order("order_index", { ascending: true })
         .range(from, to),
     ),
@@ -145,7 +145,7 @@ export async function getClienteQuickDetail(id: string): Promise<ClienteQuickDet
   const [stagesRes, segmentosRes, subsegmentosRes, tasksRes, meetingsRes, commentsRes] = await Promise.all([
     supabase
       .from("client_pipeline_stages")
-      .select("id,name,slug,color,order_index,is_final,is_active")
+      .select("id,name,slug,color,order_index,is_final,is_active,parent_stage_id")
       .order("order_index", { ascending: true }),
     supabase.from("segmentos").select("id,nome"),
     supabase.from("subsegmentos").select("id,nome"),

@@ -13,6 +13,7 @@ const stages: ClienteStageSummary[] = [
     order_index: 1,
     is_final: false,
     is_active: true,
+    parent_stage_id: null,
   },
   {
     id: "stage-proposta",
@@ -22,6 +23,7 @@ const stages: ClienteStageSummary[] = [
     order_index: 2,
     is_final: false,
     is_active: true,
+    parent_stage_id: null,
   },
 ];
 

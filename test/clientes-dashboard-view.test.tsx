@@ -64,6 +64,7 @@ const data: ClientesData = {
       order_index: 1,
       is_final: false,
       is_active: true,
+      parent_stage_id: null,
     },
   ],
   profiles: [],

@@ -32,16 +32,27 @@ type SiteRoute =
   | "/auditoria"
   | "/admin/users"
   | "/impersonar"
-  | "/configuracoes"
   | "/cs"
+  | "/cs/movimentacoes"
+  | "/cs/forca-tarefa"
+  | "/cs/compras-pagas"
+  | "/configuracoes"
+  | "/configuracoes/etapas"
   | "/perfil";
+
+type NavChild = {
+  href: SiteRoute;
+  label: string;
+};
 
 type NavLink = {
   href: SiteRoute;
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   requires?: LinkRequirement;
-  children?: Array<{ href: SiteRoute; label: string }>;
+  activePrefix?: string;
+  badge?: string;
+  children?: NavChild[];
 };
 
 const links: NavLink[] = [
@@ -50,6 +61,7 @@ const links: NavLink[] = [
     href: "/funil",
     label: "Funil de Produção",
     icon: Workflow,
+    badge: "Novo",
     children: [
       { href: "/funil", label: "Funil" },
       { href: "/funil/v1", label: "Funil detalhado" },
@@ -57,11 +69,29 @@ const links: NavLink[] = [
   },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/alertas", label: "Alertas", icon: Bell },
-  { href: "/cs", label: "Gestão CS", icon: Sparkles, requires: "csAccess" },
+  {
+    href: "/cs/movimentacoes",
+    label: "Gestão CS",
+    icon: Sparkles,
+    requires: "csAccess",
+    activePrefix: "/cs",
+    children: [
+      { href: "/cs/movimentacoes", label: "Movimentações" },
+      { href: "/cs/forca-tarefa", label: "Força Tarefa" },
+      { href: "/cs/compras-pagas", label: "Vendas CRM" },
+    ],
+  },
   { href: "/auditoria", label: "Auditoria", icon: FileSearch, requires: "auditAccess" },
   { href: "/admin/users", label: "Usuários", icon: ShieldCheck, requires: "admin" },
   { href: "/impersonar", label: "Impersonar", icon: VenetianMask, requires: "dev" },
-  { href: "/configuracoes", label: "Configurações", icon: Settings, requires: "settingsAccess" },
+  {
+    href: "/configuracoes/etapas",
+    label: "Configurações",
+    icon: Settings,
+    requires: "settingsAccess",
+    activePrefix: "/configuracoes",
+    children: [{ href: "/configuracoes/etapas", label: "Etapas e SLAs" }],
+  },
 ];
 
 const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/auth/callback"];
@@ -69,6 +99,13 @@ const publicRoutes = ["/login", "/forgot-password", "/reset-password", "/auth/ca
 const SIDEBAR_COOKIE = "sidebar:main";
 
 function getPageMeta(pathname: string) {
+  if (pathname.startsWith("/configuracoes/etapas")) {
+    return {
+      title: "Etapas e SLAs",
+      trail: "Configurações / Etapas e SLAs",
+    };
+  }
+
   if (pathname.startsWith("/configuracoes")) {
     return {
       title: "Configurações",
@@ -97,10 +134,24 @@ function getPageMeta(pathname: string) {
     };
   }
 
-  if (pathname.startsWith("/cs")) {
+  if (pathname.startsWith("/cs/movimentacoes")) {
     return {
-      title: "Gestão CS",
-      trail: "CS",
+      title: "Movimentações",
+      trail: "CS / Movimentações",
+    };
+  }
+
+  if (pathname.startsWith("/cs/forca-tarefa")) {
+    return {
+      title: "Força Tarefa",
+      trail: "CS / Força Tarefa",
+    };
+  }
+
+  if (pathname.startsWith("/cs/compras-pagas")) {
+    return {
+      title: "Vendas CRM",
+      trail: "CS / Vendas CRM",
     };
   }
 
@@ -129,13 +180,6 @@ function getPageMeta(pathname: string) {
     return {
       title: "Alertas",
       trail: "Alertas",
-    };
-  }
-
-  if (pathname === "/cs/compras-pagas") {
-    return {
-      title: "Compras Pagas",
-      trail: "CS / Compras Pagas",
     };
   }
 
@@ -278,11 +322,18 @@ export function SiteShell({
           </div>
 
           <nav className="app-sidebar-nav" aria-label="Navegação principal">
-            {visibleLinks.map(({ href, label, icon: Icon, children }) => {
-              const isActive = pathname === href || (href !== "/" && pathname?.startsWith(href));
+            {visibleLinks.map(({ href, label, icon: Icon, activePrefix, badge, children }) => {
+              const isActive =
+                pathname === href ||
+                (href !== "/" && pathname?.startsWith(`${href}/`)) ||
+                (activePrefix ? pathname === activePrefix || pathname?.startsWith(`${activePrefix}/`) : false);
               const showAssignmentsBadge = href === "/clientes" && newAssignmentsCount > 0;
 
               if (children) {
+                const activeChildHref = children
+                  .filter((child) => pathname === child.href || pathname?.startsWith(`${child.href}/`))
+                  .sort((current, next) => next.href.length - current.href.length)[0]?.href;
+
                 return (
                   <div key={href} className="app-sidebar-group">
                     <Link
@@ -292,11 +343,11 @@ export function SiteShell({
                     >
                       <Icon />
                       <span>{label}</span>
-                      <span className="app-sidebar-link-badge">Novo</span>
+                      {badge ? <span className="app-sidebar-link-badge">{badge}</span> : null}
                     </Link>
                     <div className="app-sidebar-group-children">
                       {children.map((child) => {
-                        const isChildActive = pathname === child.href;
+                        const isChildActive = activeChildHref === child.href;
                         return (
                           <Link
                             key={child.href}

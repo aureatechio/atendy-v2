@@ -15,7 +15,7 @@ const csLinks: CsNavLink[] = [
   { href: "/cs", label: "Visão geral", icon: LayoutDashboard },
   { href: "/cs/movimentacoes", label: "Movimentações", icon: MoveRight },
   { href: "/cs/forca-tarefa", label: "Força-Tarefa", icon: UsersRound },
-  { href: "/cs/compras-pagas", label: "Compras Pagas", icon: ShoppingBag },
+  { href: "/cs/compras-pagas", label: "Vendas CRM", icon: ShoppingBag },
 ];
 
 const SIDEBAR_COOKIE = "sidebar:cs";

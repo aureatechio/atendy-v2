@@ -69,6 +69,19 @@ describe("evaluateContractExpiry", () => {
     expect(res[0].status).toBe("overdue");
   });
 
+  it("handles database dates with years padded below 1000 without crashing", () => {
+    const res = evaluateContractExpiry({
+      clientes: [cliente({ vigencia: "0206-02-28" })],
+      now: NOW,
+    });
+
+    expect(res).toHaveLength(1);
+    expect(res[0]).toMatchObject({
+      status: "overdue",
+      deadline: "0206-03-01T02:59:59.999Z",
+    });
+  });
+
   it("accepts ISO datetimes and keeps the vigencia date as the contract deadline", () => {
     const res = evaluateContractExpiry({
       clientes: [cliente({ vigencia: "2026-05-30T15:45:00.000Z" })],

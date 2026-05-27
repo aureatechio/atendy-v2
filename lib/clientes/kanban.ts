@@ -1,4 +1,5 @@
 import type { ClienteListItem, ClienteStageSummary } from "@/lib/clientes/types";
+import { getActiveParentClienteStages, getClienteStageRootId } from "@/lib/clientes/stages";
 
 export const CLIENTES_NO_STAGE_COLUMN_ID = "__no_stage__";
 
@@ -27,19 +28,19 @@ export function buildClientesKanbanColumns(
   rows: ClienteListItem[],
   stages: ClienteStageSummary[],
 ): ClientesKanbanColumn[] {
-  const activeStages = stages
-    .filter((stage) => stage.is_active)
-    .sort((a, b) => a.order_index - b.order_index);
+  const stageById = new Map(stages.map((stage) => [stage.id, stage]));
+  const activeStages = getActiveParentClienteStages(stages);
 
   const stageIds = new Set(activeStages.map((stage) => stage.id));
   const itemsByStage = new Map<string, ClienteListItem[]>();
   const noStageItems: ClienteListItem[] = [];
 
   for (const row of rows) {
-    if (row.stageId && stageIds.has(row.stageId)) {
-      const items = itemsByStage.get(row.stageId) ?? [];
+    const rootStageId = getClienteStageRootId(row.stageId, stageById);
+    if (rootStageId && stageIds.has(rootStageId)) {
+      const items = itemsByStage.get(rootStageId) ?? [];
       items.push(row);
-      itemsByStage.set(row.stageId, items);
+      itemsByStage.set(rootStageId, items);
       continue;
     }
     noStageItems.push(row);

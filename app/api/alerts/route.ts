@@ -1,79 +1,96 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Alert, AlertType } from "@/lib/types";
+import {
+  ALERT_SELECT,
+  canAccessAlertRecord,
+  getAlertAuthContext,
+  materializeAlertNotifications,
+  type AlertRecordRow,
+} from "@/lib/alerts/server";
+import {
+  isNotificationVisible,
+  shouldToastNotification,
+} from "@/lib/alerts/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-interface RawRow {
-  id: string;
-  type: AlertType | null;
-  status: "warning" | "overdue";
-  fired_at: string;
-  deadline: string;
-  last_seen_at: string;
-  snoozed_until: string | null;
-  cliente: {
-    id: string;
-    nomecliente: string | null;
-    nome: string | null;
-    responsavel_atendimento: string | null;
-  } | null;
-  stage: {
-    id: string;
-    name: string | null;
-    slug: string | null;
-    color: string | null;
-  } | null;
-  task: {
-    id: string;
-    title: string | null;
-  } | null;
-}
+const PAGE_SIZE = 1000;
 
 interface ProfileRow {
   id: string;
   full_name: string | null;
 }
 
-export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const nowIso = new Date().toISOString();
-
-  const { data, error } = await supabase
+async function fetchAlertsPage(
+  admin: SupabaseClient,
+  from: number,
+  to: number,
+) {
+  return admin
     .from("sla_alerts")
-    .select(
-      `id, type, status, fired_at, deadline, last_seen_at, snoozed_until,
-       cliente:clientes_cadastro!inner(id, nomecliente, nome, responsavel_atendimento),
-       stage:client_pipeline_stages(id, name, slug, color),
-       task:production_tasks(id, title)`,
-    )
+    .select(ALERT_SELECT)
     .is("resolved_at", null)
-    .or(`snoozed_until.is.null,snoozed_until.lt.${nowIso}`)
     .order("status", { ascending: false })
-    .order("fired_at", { ascending: false });
+    .order("fired_at", { ascending: false })
+    .order("id", { ascending: true })
+    .range(from, to);
+}
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+export async function GET() {
+  const auth = await getAlertAuthContext();
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
-  const rows = (data as unknown as RawRow[]) ?? [];
+  const { admin, profile, user } = auth.context;
+  const now = new Date();
+  const rows: AlertRecordRow[] = [];
+
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await fetchAlertsPage(
+      admin,
+      from,
+      from + PAGE_SIZE - 1,
+    );
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    const page = ((data as unknown as AlertRecordRow[]) ?? []);
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
+
+  const visibleRows = rows.filter((row) => canAccessAlertRecord(profile, row));
+  const { notifications, error: notificationError } =
+    await materializeAlertNotifications(
+      admin,
+      user.id,
+      visibleRows.map((row) => row.id),
+      now,
+    );
+  if (notificationError) {
+    return NextResponse.json({ error: notificationError }, { status: 500 });
+  }
+
+  const activeRows = visibleRows.filter((row) => {
+    const notification = notifications.get(row.id);
+    return notification ? isNotificationVisible(notification, now) : false;
+  });
+
   const profileIds = [
     ...new Set(
-      rows
-        .map((r) => r.cliente?.responsavel_atendimento)
+      activeRows
+        .flatMap((r) => [
+          r.cliente?.responsavel_atendimento,
+          r.cliente?.assigned_to,
+        ])
         .filter((id): id is string => Boolean(id)),
     ),
   ];
   const { data: profiles } = profileIds.length
-    ? await supabase.from("profiles").select("id,full_name").in("id", profileIds)
+    ? await admin.from("profiles").select("id,full_name").in("id", profileIds)
     : { data: [] };
   const profileById = new Map(
     ((profiles as ProfileRow[] | null) ?? []).map((profile) => [
@@ -82,10 +99,13 @@ export async function GET() {
     ]),
   );
 
-  const alerts: Alert[] = rows
+  const alerts: Alert[] = activeRows
     .filter((r) => r.cliente)
     .map((r) => {
-      const responsavelId = r.cliente!.responsavel_atendimento;
+      const notification = notifications.get(r.id)!;
+      const responsavelAtendimentoId = r.cliente!.responsavel_atendimento;
+      const assignedToId = r.cliente!.assigned_to;
+      const responsavelId = responsavelAtendimentoId ?? assignedToId;
       const responsavel = responsavelId
         ? profileById.get(responsavelId) ?? null
         : null;
@@ -97,12 +117,24 @@ export async function GET() {
         firedAt: r.fired_at,
         deadline: r.deadline,
         lastSeenAt: r.last_seen_at,
-        snoozedUntil: r.snoozed_until,
+        snoozedUntil: notification.snoozed_until,
         cliente: {
           id: r.cliente!.id,
           nome: r.cliente!.nomecliente ?? r.cliente!.nome ?? "Sem nome",
           responsavelId,
           responsavelNome: responsavel?.full_name ?? null,
+        },
+        assignment: {
+          responsavelAtendimentoId,
+          assignedToId,
+        },
+        notification: {
+          id: notification.id,
+          state: notification.state,
+          snoozedUntil: notification.snoozed_until,
+          lastShownAt: notification.last_shown_at,
+          nextToastAt: notification.next_toast_at,
+          shouldToast: shouldToastNotification(notification, now),
         },
         stage: r.stage
           ? {

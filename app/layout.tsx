@@ -5,7 +5,7 @@ import "@/styles/cs.css";
 
 export const metadata: Metadata = {
   title: "Atendy Dashboards",
-  description: "Compras Pagas e Funil de Produção",
+  description: "Vendas CRM e Funil de Produção",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -13,7 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR">
       <body suppressHydrationWarning>
         {children}
-        <Toaster richColors position="top-right" closeButton />
+        <Toaster richColors position="top-right" closeButton visibleToasts={5} />
       </body>
     </html>
   );

@@ -1,18 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { PersistentAlertToast } from "@/components/alerts/persistent-alert-toast";
 import type { Alert, AlertType } from "@/lib/types";
+import type { ReminderOption } from "@/lib/alerts/notifications";
 
 const POLL_INTERVAL_MS = 60_000;
 const AUDIO_SRC = "/sounds/sla-alert.wav";
 
-// Limite de toasts individuais por tick. Acima disso, agrupa em 1 toast resumido.
-const TOAST_BURST_LIMIT = 3;
-
-// Chave do sessionStorage para persistir IDs já notificados durante a sessão
-// (evita cascata após navegar entre páginas / remontar o hook).
-const SEEN_STORAGE_KEY = "atendy:alerts:seenOverdueIds";
+const TOAST_VISIBLE_LIMIT = 5;
 
 const TYPE_LABELS: Record<AlertType, string> = {
   stage_sla: "SLA da etapa",
@@ -20,30 +17,6 @@ const TYPE_LABELS: Record<AlertType, string> = {
   followup: "Follow-up",
   contract_expiry: "Fim de vigência",
 };
-
-function loadSeenIds(): Set<string> {
-  if (typeof window === "undefined") return new Set();
-  try {
-    const raw = window.sessionStorage.getItem(SEEN_STORAGE_KEY);
-    if (!raw) return new Set();
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return new Set();
-    return new Set(parsed.filter((v): v is string => typeof v === "string"));
-  } catch {
-    return new Set();
-  }
-}
-
-function persistSeenIds(ids: Set<string>) {
-  if (typeof window === "undefined") return;
-  try {
-    // Mantém só até ~500 IDs para não inflar o storage
-    const arr = [...ids].slice(-500);
-    window.sessionStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(arr));
-  } catch {
-    /* quota / privacy mode: ignorar */
-  }
-}
 
 function playAlertSound() {
   if (typeof window === "undefined") return;
@@ -56,10 +29,22 @@ function playAlertSound() {
   }
 }
 
+async function postAlertToastEvent(
+  event: "toast_shown" | "opened",
+  alertIds: string[],
+) {
+  if (alertIds.length === 0) return;
+  await fetch("/api/alerts/toast-events", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ event, alertIds }),
+  });
+}
+
 export interface UseAlertsOptions {
   type?: AlertType;
   /**
-   * Se true, dispara toasts para novos overdues. Defina como `true` em UM ÚNICO
+   * Se true, dispara toasts persistentes. Defina como `true` em UM ÚNICO
    * consumidor (o sino global) para evitar cascata de toasts duplicados.
    * Default: false.
    */
@@ -70,8 +55,89 @@ export function useAlerts(options: UseAlertsOptions = {}) {
   const { type, enableToasts = false } = options;
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
-  const seenIdsRef = useRef<Set<string>>(loadSeenIds());
-  const initializedRef = useRef(false);
+  const activeToastIdsRef = useRef<Set<string>>(new Set());
+
+  const dismissAlertToast = useCallback((alertId: string) => {
+    const toastId = `alert-${alertId}`;
+    toast.dismiss(toastId);
+    activeToastIdsRef.current.delete(alertId);
+  }, []);
+
+  const remindAlert = useCallback(
+    async (alert: Alert, reminder: ReminderOption) => {
+      const res = await fetch(`/api/alerts/${alert.id}/remind`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reminder }),
+      });
+      if (!res.ok) {
+        toast.error("Falha ao criar lembrete");
+        return;
+      }
+      dismissAlertToast(alert.id);
+      setAlerts((prev) => prev.filter((item) => item.id !== alert.id));
+      toast.success("Lembrete criado");
+    },
+    [dismissAlertToast],
+  );
+
+  const openAlert = useCallback(
+    async (alert: Alert) => {
+      try {
+        await postAlertToastEvent("opened", [alert.id]);
+      } catch {
+        /* log best-effort */
+      }
+      dismissAlertToast(alert.id);
+      if (typeof window !== "undefined") {
+        window.location.assign(`/clientes/${alert.cliente.id}`);
+      }
+    },
+    [dismissAlertToast],
+  );
+
+  const showPersistentToasts = useCallback(
+    (incoming: Alert[]) => {
+      const openSlots = Math.max(0, TOAST_VISIBLE_LIMIT - activeToastIdsRef.current.size);
+      if (openSlots === 0) return;
+
+      const toShow = incoming
+        .filter((alert) => alert.notification?.shouldToast)
+        .filter((alert) => !activeToastIdsRef.current.has(alert.id))
+        .slice(0, openSlots);
+
+      if (toShow.length === 0) return;
+
+      for (const alert of toShow) {
+        const toastId = `alert-${alert.id}`;
+        activeToastIdsRef.current.add(alert.id);
+        toast.custom(
+          () =>
+            createElement(PersistentAlertToast, {
+              alert,
+              typeLabel: TYPE_LABELS[alert.type],
+              onOpen: () => openAlert(alert),
+              onRemind: (reminder: ReminderOption) =>
+                remindAlert(alert, reminder),
+            }),
+          {
+            id: toastId,
+            duration: Infinity,
+            className: "alerts-toast-shell",
+            onDismiss: () => activeToastIdsRef.current.delete(alert.id),
+            onAutoClose: () => activeToastIdsRef.current.delete(alert.id),
+          },
+        );
+      }
+
+      void postAlertToastEvent(
+        "toast_shown",
+        toShow.map((alert) => alert.id),
+      ).catch(() => {});
+      playAlertSound();
+    },
+    [openAlert, remindAlert],
+  );
 
   const fetchAlerts = useCallback(async () => {
     try {
@@ -81,62 +147,16 @@ export function useAlerts(options: UseAlertsOptions = {}) {
       const incoming = body.alerts ?? [];
 
       if (enableToasts) {
-        const newOverdue = incoming.filter(
-          (a) => a.status === "overdue" && !seenIdsRef.current.has(a.id),
-        );
-        const isFirstTick = !initializedRef.current;
-
-        if (newOverdue.length > 0) {
-          // Na primeira sincronização, NÃO mostramos toasts individuais para
-          // tudo que já estava aberto. Só marcamos como visto.
-          if (!isFirstTick) {
-            if (newOverdue.length <= TOAST_BURST_LIMIT) {
-              for (const a of newOverdue) {
-                toast.error(`${TYPE_LABELS[a.type]} · ${a.cliente.nome}`, {
-                  description:
-                    a.type === "task_overdue"
-                      ? (a.task?.title ?? "Tarefa sem título")
-                      : (a.stage?.name ?? ""),
-                  duration: 6000,
-                });
-              }
-            } else {
-              // Agregado: 1 único toast resumido + ação para abrir /alertas
-              toast.error(`${newOverdue.length} novos alertas atrasados`, {
-                description: "Toque para ver detalhes.",
-                duration: 8000,
-                action: {
-                  label: "Abrir",
-                  onClick: () => {
-                    if (typeof window !== "undefined") {
-                      window.location.assign("/alertas");
-                    }
-                  },
-                },
-              });
-            }
-            playAlertSound();
-          }
-
-          // Marca como visto independentemente
-          for (const a of newOverdue) seenIdsRef.current.add(a.id);
-          persistSeenIds(seenIdsRef.current);
-        }
+        showPersistentToasts(incoming);
       }
 
-      // Sempre mantém o snapshot de IDs (até para o consumidor sem toasts) para
-      // futuras comparações funcionarem mesmo se o usuário ligar toasts depois.
-      for (const a of incoming) {
-        if (a.status === "overdue") seenIdsRef.current.add(a.id);
-      }
-      initializedRef.current = true;
       setAlerts(incoming);
     } catch {
       /* network errors: stay silent and retry on next tick */
     } finally {
       setLoading(false);
     }
-  }, [enableToasts]);
+  }, [enableToasts, showPersistentToasts]);
 
   useEffect(() => {
     let cancelled = false;
