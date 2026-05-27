@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getAuditActor, logAuditEvent } from "@/lib/audit/logger";
+import { buildClientStageHistoryRow } from "@/lib/audit/history";
+import { createAuditOperationId, getAuditActor, logAuditEvent } from "@/lib/audit/logger";
 import { getAuditRequestContext } from "@/lib/audit/request-context";
 import { createClient } from "@/lib/supabase/server";
 
@@ -69,7 +70,7 @@ export async function changeStage(clienteId: string, newStageId: string): Promis
   if (!current) return { ok: false, error: "Cliente não encontrado." };
   if (current.current_stage_id === newStageId) return { ok: true };
 
-  const operationId = crypto.randomUUID();
+  const operationId = createAuditOperationId();
   const now = new Date().toISOString();
   const { error: updateError } = await supabase
     .from("clientes_cadastro")
@@ -77,17 +78,16 @@ export async function changeStage(clienteId: string, newStageId: string): Promis
     .eq("id", clienteId);
   if (updateError) return { ok: false, error: updateError.message };
 
-  await supabase.from("client_stage_history").insert({
-    cliente_id: clienteId,
-    from_stage_id: current.current_stage_id,
-    to_stage_id: newStageId,
-    changed_by: user.id,
-    action_type: "stage_change",
-    reason: null,
-    metadata: {
-      operation_id: operationId,
-    },
-  });
+  await supabase.from("client_stage_history").insert(
+    buildClientStageHistoryRow({
+      actionType: "stage_change",
+      changedBy: user.id,
+      clienteId,
+      fromStageId: current.current_stage_id,
+      operationId,
+      toStageId: newStageId,
+    }),
+  );
 
   const [actor, context] = await Promise.all([getAuditActor(user), getAuditRequestContext()]);
   await logAuditEvent({
@@ -130,7 +130,7 @@ export async function setArchived(clienteId: string, archived: boolean): Promise
   if (!current) return { ok: false, error: "Cliente não encontrado." };
   if (Boolean(current.is_archived) === archived) return { ok: true };
 
-  const operationId = crypto.randomUUID();
+  const operationId = createAuditOperationId();
   const now = new Date().toISOString();
   const { error } = await supabase
     .from("clientes_cadastro")
@@ -161,17 +161,16 @@ export async function setArchived(clienteId: string, archived: boolean): Promise
     is_archived: archived,
   };
 
-  await supabase.from("client_stage_history").insert({
-    cliente_id: clienteId,
-    from_stage_id: current.current_stage_id,
-    to_stage_id: current.current_stage_id,
-    changed_by: user.id,
-    action_type: actionType,
-    reason: null,
-    metadata: {
-      operation_id: operationId,
-    },
-  });
+  await supabase.from("client_stage_history").insert(
+    buildClientStageHistoryRow({
+      actionType,
+      changedBy: user.id,
+      clienteId,
+      fromStageId: current.current_stage_id,
+      operationId,
+      toStageId: current.current_stage_id,
+    }),
+  );
 
   const [actor, context] = await Promise.all([getAuditActor(user), getAuditRequestContext()]);
   await logAuditEvent({

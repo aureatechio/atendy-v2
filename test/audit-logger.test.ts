@@ -1,7 +1,30 @@
-import { describe, expect, it } from "vitest";
-import { buildAuditDiff, sanitizeAuditValue, toAuditRow, type AuditEventInput } from "@/lib/audit/logger";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  createAdminClient: vi.fn(),
+}));
+
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: mocks.createAdminClient,
+}));
+
+import {
+  buildAuditDiff,
+  createAuditOperationId,
+  createServiceAuditActor,
+  createSystemAuditActor,
+  logAuditEvents,
+  mergeAuditMetadata,
+  sanitizeAuditValue,
+  toAuditRow,
+  type AuditEventInput,
+} from "@/lib/audit/logger";
 
 describe("audit logger helpers", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("buildAuditDiff returns only shallow changed fields", () => {
     expect(
       buildAuditDiff(
@@ -53,6 +76,35 @@ describe("audit logger helpers", () => {
       },
       password: "[REDACTED]",
       refreshSecret: "[REDACTED]",
+    });
+  });
+
+  it("mergeAuditMetadata redacts sensitive data and drops undefined values", () => {
+    expect(
+      mergeAuditMetadata(
+        { operation_id: "op-1", token: "abc" },
+        { token: "override", optional: undefined, source: "test" },
+      ),
+    ).toEqual({
+      operation_id: "op-1",
+      source: "test",
+      token: "[REDACTED]",
+    });
+  });
+
+  it("creates system/service actors and operation ids", () => {
+    expect(createAuditOperationId()).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(createSystemAuditActor("cron")).toEqual({
+      email: null,
+      id: null,
+      role: "cron",
+      source: "system",
+    });
+    expect(createServiceAuditActor()).toEqual({
+      email: null,
+      id: null,
+      role: "service",
+      source: "service",
     });
   });
 
@@ -122,5 +174,25 @@ describe("audit logger helpers", () => {
       status: "success",
       user_agent: "Vitest",
     });
+  });
+
+  it("logAuditEvents inserts audit rows in chunks", async () => {
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    const from = vi.fn(() => ({ insert }));
+    mocks.createAdminClient.mockReturnValue({ from });
+
+    const inputs: AuditEventInput[] = Array.from({ length: 205 }, (_, index) => ({
+      action: "test.event",
+      entityId: "22222222-2222-2222-2222-222222222222",
+      entityType: "test",
+      metadata: { index },
+    }));
+
+    await expect(logAuditEvents(inputs)).resolves.toEqual({ ok: true });
+    expect(from).toHaveBeenCalledWith("audit_events");
+    expect(insert).toHaveBeenCalledTimes(3);
+    expect(insert.mock.calls[0][0]).toHaveLength(100);
+    expect(insert.mock.calls[1][0]).toHaveLength(100);
+    expect(insert.mock.calls[2][0]).toHaveLength(5);
   });
 });

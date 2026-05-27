@@ -6,6 +6,7 @@ import {
   Bell,
   ChevronsLeft,
   ChevronsRight,
+  FileSearch,
   Home,
   LogOut,
   Settings,
@@ -20,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { SlaBell } from "@/components/layout/sla-bell";
 import { useAuth } from "@/hooks/use-auth";
 
-type LinkRequirement = "admin" | "csAccess" | "settingsAccess" | "dev";
+type LinkRequirement = "admin" | "csAccess" | "settingsAccess" | "auditAccess" | "dev";
 
 type SiteRoute =
   | "/"
@@ -28,6 +29,7 @@ type SiteRoute =
   | "/funil/v1"
   | "/clientes"
   | "/alertas"
+  | "/auditoria"
   | "/admin/users"
   | "/impersonar"
   | "/configuracoes"
@@ -56,6 +58,7 @@ const links: NavLink[] = [
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/alertas", label: "Alertas", icon: Bell },
   { href: "/cs", label: "Gestão CS", icon: Sparkles, requires: "csAccess" },
+  { href: "/auditoria", label: "Auditoria", icon: FileSearch, requires: "auditAccess" },
   { href: "/admin/users", label: "Usuários", icon: ShieldCheck, requires: "admin" },
   { href: "/impersonar", label: "Impersonar", icon: VenetianMask, requires: "dev" },
   { href: "/configuracoes", label: "Configurações", icon: Settings, requires: "settingsAccess" },
@@ -77,6 +80,13 @@ function getPageMeta(pathname: string) {
     return {
       title: "Meu perfil",
       trail: "Perfil",
+    };
+  }
+
+  if (pathname.startsWith("/auditoria")) {
+    return {
+      title: "Auditoria",
+      trail: "Auditoria",
     };
   }
 
@@ -161,7 +171,20 @@ export function SiteShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { loading, profile, user, isAuthenticated, isPending, isBlocked, isSupervisor, isCsAccess, isSettingsAccess, isDev, signOut } =
+  const {
+    loading,
+    profile,
+    user,
+    isAuthenticated,
+    isPending,
+    isBlocked,
+    isSupervisor,
+    isCsAccess,
+    isSettingsAccess,
+    isAuditAccess,
+    isDev,
+    signOut,
+  } =
     useAuth();
   const [stoppingImpersonation, setStoppingImpersonation] = useState(false);
   const { title, trail } = getPageMeta(pathname || "/");
@@ -181,6 +204,7 @@ export function SiteShell({
     if (link.requires === "admin") return isSupervisor;
     if (link.requires === "csAccess") return isCsAccess;
     if (link.requires === "settingsAccess") return isSettingsAccess;
+    if (link.requires === "auditAccess") return isAuditAccess;
     if (link.requires === "dev") return isDev;
     return false;
   });

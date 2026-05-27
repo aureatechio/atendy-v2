@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { createAuditOperationId, getAuditActor, logAuditEvent } from "@/lib/audit/logger";
+import { getAuditRequestContext } from "@/lib/audit/request-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminAccess } from "@/lib/auth/requireAdmin";
 import { updateHolidaySchema } from "@/lib/sla/validation";
@@ -21,6 +23,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ da
   }
 
   const admin = createAdminClient();
+  const operationId = createAuditOperationId();
+  const [actor, context] = await Promise.all([getAuditActor(access.user), getAuditRequestContext()]);
+  const { data: beforeHoliday } = await admin.from("business_holidays").select(holidayColumns).eq("date", date).maybeSingle();
   const { data, error } = await admin
     .from("business_holidays")
     .update(parsed.data)
@@ -29,8 +34,30 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ da
     .single();
 
   if (error || !data) {
+    await logAuditEvent({
+      action: "settings.holiday_updated",
+      actor,
+      before: beforeHoliday ?? null,
+      context,
+      entityType: "business_holiday",
+      errorMessage: error?.message ?? "Nao foi possivel atualizar o feriado.",
+      metadata: { date },
+      operationId,
+      status: "failure",
+    });
     return NextResponse.json({ error: error?.message ?? "Nao foi possivel atualizar o feriado." }, { status: 400 });
   }
+
+  await logAuditEvent({
+    action: "settings.holiday_updated",
+    actor,
+    after: data,
+    before: beforeHoliday ?? null,
+    context,
+    entityType: "business_holiday",
+    metadata: { date },
+    operationId,
+  });
 
   return NextResponse.json({ holiday: data });
 }
@@ -45,11 +72,35 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   }
 
   const admin = createAdminClient();
+  const operationId = createAuditOperationId();
+  const [actor, context] = await Promise.all([getAuditActor(access.user), getAuditRequestContext()]);
+  const { data: beforeHoliday } = await admin.from("business_holidays").select(holidayColumns).eq("date", date).maybeSingle();
   const { error } = await admin.from("business_holidays").delete().eq("date", date);
 
   if (error) {
+    await logAuditEvent({
+      action: "settings.holiday_deleted",
+      actor,
+      before: beforeHoliday ?? null,
+      context,
+      entityType: "business_holiday",
+      errorMessage: error.message,
+      metadata: { date },
+      operationId,
+      status: "failure",
+    });
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  await logAuditEvent({
+    action: "settings.holiday_deleted",
+    actor,
+    before: beforeHoliday ?? null,
+    context,
+    entityType: "business_holiday",
+    metadata: { date },
+    operationId,
+  });
 
   return NextResponse.json({ ok: true });
 }

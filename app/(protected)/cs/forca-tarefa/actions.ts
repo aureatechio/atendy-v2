@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getAuditActor, logAuditEvents } from "@/lib/audit/logger";
+import { buildClientStageHistoryRow } from "@/lib/audit/history";
+import { createAuditOperationId, getAuditActor, logAuditEvents } from "@/lib/audit/logger";
 import { getAuditRequestContext } from "@/lib/audit/request-context";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthSnapshot } from "@/lib/auth/get-auth-snapshot";
@@ -42,7 +43,7 @@ export async function reassignBatch(input: ReassignBatchInput): Promise<Reassign
 
   const supabase = await createClient();
   const userId = snapshot.user.id;
-  const operationId = crypto.randomUUID();
+  const operationId = createAuditOperationId();
   const now = new Date().toISOString();
   const trimmedReason = reason?.trim() || null;
 
@@ -77,21 +78,23 @@ export async function reassignBatch(input: ReassignBatchInput): Promise<Reassign
     }
   }
 
-  const historyRows = assignments.map((a) => ({
-    cliente_id: a.clienteId,
-    from_stage_id: a.stageId,
-    to_stage_id: a.stageId,
-    from_assigned_to: a.fromAssigneeId,
-    to_assigned_to: a.toAssigneeId,
-    changed_by: userId,
-    action_type: "bulk_reassignment",
-    reason: trimmedReason,
-    metadata: {
-      operation_id: operationId,
-      batch_size: assignments.length,
-      source_stage_id: a.stageId,
-    },
-  }));
+  const historyRows = assignments.map((a) =>
+    buildClientStageHistoryRow({
+      actionType: "bulk_reassignment",
+      changedBy: userId,
+      clienteId: a.clienteId,
+      fromAssignedTo: a.fromAssigneeId,
+      fromStageId: a.stageId,
+      metadata: {
+        batch_size: assignments.length,
+        source_stage_id: a.stageId,
+      },
+      operationId,
+      reason: trimmedReason,
+      toAssignedTo: a.toAssigneeId,
+      toStageId: a.stageId,
+    }),
+  );
 
   const { error: historyError } = await supabase.from("client_stage_history").insert(historyRows);
   if (historyError) {

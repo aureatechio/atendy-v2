@@ -1,4 +1,13 @@
 import { NextResponse } from "next/server";
+import {
+  createAuditOperationId,
+  getAuditActor,
+  logAuditEvent,
+  logAuditEvents,
+  type AuditEventInput,
+  type AuditJsonObject,
+} from "@/lib/audit/logger";
+import { getAuditRequestContext } from "@/lib/audit/request-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminAccess } from "@/lib/auth/requireAdmin";
 import { reorderStagesSchema } from "@/lib/sla/validation";
@@ -10,6 +19,8 @@ type ExistingStage = {
   id: string;
   is_final: boolean;
   is_active: boolean;
+  name?: string | null;
+  order_index?: number | null;
   parent_stage_id: string | null;
 };
 
@@ -32,13 +43,25 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
+  const operationId = createAuditOperationId();
+  const [actor, context] = await Promise.all([getAuditActor(access.user), getAuditRequestContext()]);
 
   // Carrega todas as etapas envolvidas + todas que podem virar mãe (para validação)
   const { data: existing, error: existingError } = await admin
     .from("client_pipeline_stages")
-    .select("id, is_final, is_active, parent_stage_id");
+    .select("id, name, order_index, is_final, is_active, parent_stage_id");
 
   if (existingError || !existing) {
+    await logAuditEvent({
+      action: "settings.stages_reordered",
+      actor,
+      context,
+      entityType: "client_pipeline_stage",
+      errorMessage: "Não foi possível carregar etapas para validação.",
+      metadata: { update_count: updates.length },
+      operationId,
+      status: "failure",
+    });
     return NextResponse.json(
       { error: "Não foi possível carregar etapas para validação." },
       { status: 500 },
@@ -140,6 +163,20 @@ export async function POST(request: Request) {
       .single();
 
     if (error || !data) {
+      await logAuditEvent({
+        action: "settings.stages_reordered",
+        actor,
+        context,
+        entityType: "client_pipeline_stage",
+        errorMessage: error?.message ?? `Falha ao atualizar etapa ${upd.id}.`,
+        metadata: {
+          failed_stage_id: upd.id,
+          partial_count: results.length,
+          update_count: updates.length,
+        },
+        operationId,
+        status: "failure",
+      });
       return NextResponse.json(
         {
           error:
@@ -151,6 +188,50 @@ export async function POST(request: Request) {
     }
     results.push(data);
   }
+
+  const beforeById = new Map<string, ExistingStage>(
+    (existing as ExistingStage[]).map((stage) => [stage.id, stage]),
+  );
+  const events: AuditEventInput[] = [
+    {
+      action: "settings.stages_reordered",
+      actor,
+      context,
+      entityType: "client_pipeline_stage",
+      metadata: {
+        changed_count: results.length,
+        update_count: updates.length,
+      },
+      operationId,
+    },
+  ];
+
+  for (const row of results as AuditJsonObject[]) {
+    const previous = beforeById.get(String(row.id));
+    if (!previous) continue;
+    if (previous.order_index === row.order_index && previous.parent_stage_id === row.parent_stage_id) continue;
+    events.push({
+      action: "settings.stage_position_changed",
+      actor,
+      after: {
+        order_index: row.order_index ?? null,
+        parent_stage_id: row.parent_stage_id ?? null,
+      },
+      before: {
+        order_index: previous.order_index ?? null,
+        parent_stage_id: previous.parent_stage_id ?? null,
+      },
+      context,
+      entityId: String(row.id),
+      entityType: "client_pipeline_stage",
+      metadata: {
+        name: row.name ?? previous.name ?? null,
+      },
+      operationId,
+    });
+  }
+
+  await logAuditEvents(events);
 
   return NextResponse.json({ stages: results });
 }

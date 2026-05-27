@@ -28,9 +28,12 @@ vi.mock("@/lib/auth/guards", () => ({
 }));
 
 vi.mock("@/lib/audit/logger", () => ({
+  createAuditOperationId: () => "33333333-3333-3333-3333-333333333333",
   getAuditActor: mocks.getAuditActor,
   logAuditEvent: mocks.logAuditEvent,
   logAuditEvents: mocks.logAuditEvents,
+  mergeAuditMetadata: (...items: Array<Record<string, unknown> | null | undefined>) =>
+    Object.assign({}, ...items.filter(Boolean)),
 }));
 
 vi.mock("@/lib/audit/request-context", () => ({

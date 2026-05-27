@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getAuditActor, logAuditEvent } from "@/lib/audit/logger";
+import { buildClientStageHistoryRow } from "@/lib/audit/history";
+import { createAuditOperationId, getAuditActor, logAuditEvent } from "@/lib/audit/logger";
 import { getAuditRequestContext } from "@/lib/audit/request-context";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthSnapshot } from "@/lib/auth/get-auth-snapshot";
@@ -44,7 +45,7 @@ export async function assignResponsavel(
     return { ok: false, error: "Cliente não encontrado." };
   }
 
-  const operationId = crypto.randomUUID();
+  const operationId = createAuditOperationId();
   const now = new Date().toISOString();
   const { error: updateError } = await supabase
     .from("clientes_cadastro")
@@ -59,18 +60,18 @@ export async function assignResponsavel(
     return { ok: false, error: `Falha ao atribuir: ${updateError.message}` };
   }
 
-  await supabase.from("client_stage_history").insert({
-    cliente_id: clienteId,
-    from_stage_id: clienteAtual.current_stage_id,
-    to_stage_id: clienteAtual.current_stage_id,
-    from_assigned_to: clienteAtual.responsavel_atendimento,
-    to_assigned_to: responsavelId,
-    changed_by: snapshot.user.id,
-    action_type: "reassignment",
-    metadata: {
-      operation_id: operationId,
-    },
-  });
+  await supabase.from("client_stage_history").insert(
+    buildClientStageHistoryRow({
+      actionType: "reassignment",
+      changedBy: snapshot.user.id,
+      clienteId,
+      fromAssignedTo: clienteAtual.responsavel_atendimento,
+      fromStageId: clienteAtual.current_stage_id,
+      operationId,
+      toAssignedTo: responsavelId,
+      toStageId: clienteAtual.current_stage_id,
+    }),
+  );
 
   const [actor, context] = await Promise.all([getAuditActor(snapshot.user), getAuditRequestContext()]);
   await logAuditEvent({

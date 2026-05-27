@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { createAuditOperationId, getAuditActor, logAuditEvent } from "@/lib/audit/logger";
+import { getAuditRequestContext } from "@/lib/audit/request-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminAccess } from "@/lib/auth/requireAdmin";
@@ -33,6 +35,8 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
+  const operationId = createAuditOperationId();
+  const [actor, context] = await Promise.all([getAuditActor(access.user), getAuditRequestContext()]);
   const { data, error } = await admin
     .from("business_holidays")
     .insert(parsed.data)
@@ -40,8 +44,28 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !data) {
+    await logAuditEvent({
+      action: "settings.holiday_created",
+      actor,
+      context,
+      entityType: "business_holiday",
+      errorMessage: error?.message ?? "Nao foi possivel criar o feriado.",
+      metadata: { date: parsed.data.date },
+      operationId,
+      status: "failure",
+    });
     return NextResponse.json({ error: error?.message ?? "Nao foi possivel criar o feriado." }, { status: 400 });
   }
+
+  await logAuditEvent({
+    action: "settings.holiday_created",
+    actor,
+    after: data,
+    context,
+    entityType: "business_holiday",
+    metadata: { date: data.date },
+    operationId,
+  });
 
   return NextResponse.json({ holiday: data });
 }
