@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Sparkles,
   Users,
+  VenetianMask,
   Workflow,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -19,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { SlaBell } from "@/components/layout/sla-bell";
 import { useAuth } from "@/hooks/use-auth";
 
-type LinkRequirement = "admin" | "csAccess" | "settingsAccess";
+type LinkRequirement = "admin" | "csAccess" | "settingsAccess" | "dev";
 
 type SiteRoute =
   | "/"
@@ -28,6 +29,7 @@ type SiteRoute =
   | "/clientes"
   | "/alertas"
   | "/admin/users"
+  | "/impersonar"
   | "/configuracoes"
   | "/cs"
   | "/perfil";
@@ -55,6 +57,7 @@ const links: NavLink[] = [
   { href: "/alertas", label: "Alertas", icon: Bell },
   { href: "/cs", label: "Gestão CS", icon: Sparkles, requires: "csAccess" },
   { href: "/admin/users", label: "Usuários", icon: ShieldCheck, requires: "admin" },
+  { href: "/impersonar", label: "Impersonar", icon: VenetianMask, requires: "dev" },
   { href: "/configuracoes", label: "Configurações", icon: Settings, requires: "settingsAccess" },
 ];
 
@@ -149,15 +152,18 @@ export function SiteShell({
   children,
   initialSidebarCollapsed = false,
   newAssignmentsCount = 0,
+  impersonation = null,
 }: {
   children: ReactNode;
   initialSidebarCollapsed?: boolean;
   newAssignmentsCount?: number;
+  impersonation?: { returnToName: string } | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { loading, profile, user, isAuthenticated, isPending, isBlocked, isSupervisor, isCsAccess, isSettingsAccess, signOut } =
+  const { loading, profile, user, isAuthenticated, isPending, isBlocked, isSupervisor, isCsAccess, isSettingsAccess, isDev, signOut } =
     useAuth();
+  const [stoppingImpersonation, setStoppingImpersonation] = useState(false);
   const { title, trail } = getPageMeta(pathname || "/");
   const isPublicRoute = publicRoutes.some((route) => pathname === route || pathname?.startsWith(`${route}/`));
   const [collapsed, setCollapsed] = useState(initialSidebarCollapsed);
@@ -175,8 +181,15 @@ export function SiteShell({
     if (link.requires === "admin") return isSupervisor;
     if (link.requires === "csAccess") return isCsAccess;
     if (link.requires === "settingsAccess") return isSettingsAccess;
+    if (link.requires === "dev") return isDev;
     return false;
   });
+
+  async function stopImpersonation() {
+    setStoppingImpersonation(true);
+    await fetch("/api/admin/impersonate/stop", { method: "POST" });
+    window.location.assign("/");
+  }
 
   useEffect(() => {
     if (isPublicRoute || loading || isAuthenticated) {
@@ -312,6 +325,24 @@ export function SiteShell({
         </aside>
 
         <main className="app-main">
+          {impersonation ? (
+            <div className="impersonation-banner" role="status">
+              <VenetianMask aria-hidden />
+              <span>
+                Você está logado como <strong>{profile?.full_name ?? user?.email ?? "outro usuário"}</strong>.
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={stopImpersonation}
+                disabled={stoppingImpersonation}
+                className="impersonation-banner-action"
+              >
+                {stoppingImpersonation ? "Voltando..." : `Voltar para ${impersonation.returnToName}`}
+              </Button>
+            </div>
+          ) : null}
           <header className="app-header">
             <div className="app-header-content">
               <p className="app-header-breadcrumb">

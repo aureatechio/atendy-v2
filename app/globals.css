@@ -277,6 +277,27 @@ a {
   min-width: 0;
 }
 
+.impersonation-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px var(--container-pad);
+  background: #7c2d12;
+  color: #fff7ed;
+  font-size: 14px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.impersonation-banner strong {
+  font-weight: 600;
+}
+
+.impersonation-banner-action {
+  margin-left: auto;
+}
+
 .app-header {
   min-height: var(--header-h);
   border-bottom: 1px solid var(--border);

@@ -32,16 +32,29 @@ Distribuição (snapshot 2026-05-20): `producao 32, admin 10, supervisor 10, att
 ### Capabilities ([lib/auth/capabilities.ts](lib/auth/capabilities.ts))
 
 ```ts
-type Capability = "adminOnly" | "adminArea" | "csArea"
+type Capability = "adminOnly" | "adminArea" | "csArea" | "settingsArea"
 
 CAPABILITIES = {
-  adminOnly: ["admin"],                          // Mutations sensíveis
-  adminArea: ["admin", "supervisor"],            // Read + light ops
-  csArea:    ["admin", "dev", "cs_head"],        // Customer Success
+  adminOnly:    ["admin"],                       // Mutations sensíveis
+  adminArea:    ["admin", "supervisor"],         // Read + light ops
+  csArea:       ["admin", "dev", "cs_head"],     // Customer Success
+  settingsArea: ["admin", "dev", "cs_head"],     // Etapas/SLAs/feriados
 }
 
 roleHasCapability(role, capability) → boolean
 ```
+
+`canAccessSettings(snapshot)` em [lib/auth/guards.ts](lib/auth/guards.ts) usa `settingsArea`.
+
+### Impersonação (dev-only)
+
+Dev entra na conta de qualquer usuário **ativo** com um clique. Capability `impersonate: ["dev"]`.
+- Página [app/(protected)/impersonar/page.tsx](app/(protected)/impersonar/page.tsx) — fora do layout `/admin` (que bloqueia dev via `adminArea`); guard próprio com `roleHasCapability(role, "impersonate")`. UI em [components/admin/impersonation-panel.tsx](components/admin/impersonation-panel.tsx).
+- Endpoints [app/api/admin/impersonate/route.ts](app/api/admin/impersonate/route.ts): `GET` lista candidatos, `POST` inicia. Stop em [.../stop/route.ts](app/api/admin/impersonate/stop/route.ts).
+- **Mecanismo:** `admin.auth.admin.generateLink({ type: "magiclink" })` → `supabase.auth.verifyOtp({ token_hash })` troca os cookies de sessão para o alvo. Não há API nativa de impersonação no Supabase.
+- **Voltar:** cookie httpOnly **assinado (HMAC-SHA256)** `atendy-impersonator` guarda `{ impersonatorId, impersonatorName }` ([lib/auth/impersonation.ts](lib/auth/impersonation.ts)). Stop verifica assinatura + re-checa que a conta original ainda é dev ativo, faz verifyOtp de volta e limpa o cookie. Segredo: `IMPERSONATION_SECRET` (fallback = service role key).
+- **Banner** global enquanto impersonando: protected layout decodifica o cookie e passa `impersonation` pra `SiteShell`.
+- Bloqueios: impersonação aninhada (409), alvo = você mesmo (400), alvo não-ativo (400).
 
 ⚠️ `attendant`, `producao`, `designer` **não têm capability** — são roles operacionais sem gates além do login.
 
@@ -139,7 +152,7 @@ type AdminUser = Profile & {
 
 ### Helpers adicionais
 
-- [lib/auth/last-login.ts](lib/auth/last-login.ts) — registra last login
+- [lib/auth/last-login.ts](lib/auth/last-login.ts) — **só formatadores de data** (`formatLastLogin` / `formatLastLoginDetails`). NÃO registra login; `last_sign_in_at` vem do Supabase Auth e é exposto via `/api/admin/users`.
 - [lib/supabase/server.ts](lib/supabase/server.ts) — `createClient()` (cookies, RLS aplicada)
 - [lib/supabase/admin.ts](lib/supabase/admin.ts) — `createAdminClient()` (service role, sem RLS) — usar com cuidado em endpoints protegidos por `requireAdminAccess`
 
