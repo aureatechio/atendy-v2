@@ -62,6 +62,7 @@ type SupabaseInsertResult = {
 };
 
 const REDACTED = "[REDACTED]";
+const AUDIT_LOG_CHUNK_SIZE = 100;
 const sensitiveKeyPattern = /(password|token|secret|service_role)/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -83,6 +84,43 @@ export function sanitizeAuditValue(value: unknown): unknown {
       sensitiveKeyPattern.test(key) ? REDACTED : sanitizeAuditValue(item),
     ]),
   );
+}
+
+export function createAuditOperationId() {
+  return crypto.randomUUID();
+}
+
+export function createSystemAuditActor(role = "system"): AuditActor {
+  return {
+    email: null,
+    id: null,
+    role,
+    source: "system",
+  };
+}
+
+export function createServiceAuditActor(role = "service"): AuditActor {
+  return {
+    email: null,
+    id: null,
+    role,
+    source: "service",
+  };
+}
+
+export function mergeAuditMetadata(
+  ...items: Array<AuditJsonObject | null | undefined>
+): AuditJsonObject {
+  const merged: AuditJsonObject = {};
+
+  for (const item of items) {
+    if (!isRecord(item)) continue;
+    for (const [key, value] of Object.entries(item)) {
+      if (value !== undefined) merged[key] = value;
+    }
+  }
+
+  return sanitizeAuditValue(merged) as AuditJsonObject;
 }
 
 export function buildAuditDiff(
@@ -112,7 +150,7 @@ export function toAuditRow(input: AuditEventInput): AuditEventRow {
   const actor = input.actor ?? null;
   const before = input.before ? sanitizeAuditValue(input.before) : null;
   const after = input.after ? sanitizeAuditValue(input.after) : null;
-  const metadata = sanitizeAuditValue(input.metadata ?? {});
+  const metadata = mergeAuditMetadata(input.metadata ?? {});
   const diff = input.before || input.after ? buildAuditDiff(input.before, input.after) : null;
 
   return {
@@ -160,11 +198,14 @@ export async function logAuditEvents(inputs: AuditEventInput[]) {
 
   const admin = createAdminClient();
   const rows = inputs.map(toAuditRow);
-  const { error } = (await admin.from("audit_events").insert(rows)) as SupabaseInsertResult;
+  for (let index = 0; index < rows.length; index += AUDIT_LOG_CHUNK_SIZE) {
+    const chunk = rows.slice(index, index + AUDIT_LOG_CHUNK_SIZE);
+    const { error } = (await admin.from("audit_events").insert(chunk)) as SupabaseInsertResult;
 
-  if (error) {
-    console.error("Falha ao registrar audit_events:", error);
-    return { ok: false, error: error.message };
+    if (error) {
+      console.error("Falha ao registrar audit_events:", error);
+      return { ok: false, error: error.message };
+    }
   }
 
   return { ok: true };

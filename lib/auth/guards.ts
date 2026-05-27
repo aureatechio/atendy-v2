@@ -29,3 +29,7 @@ export function canAccessCS(snapshot: AuthSnapshot) {
 export function canAccessSettings(snapshot: AuthSnapshot) {
   return snapshot.status === "active" && roleHasCapability(snapshot.profile.role, "settingsArea");
 }
+
+export function canAccessAudit(snapshot: AuthSnapshot) {
+  return snapshot.status === "active" && roleHasCapability(snapshot.profile.role, "auditArea");
+}
