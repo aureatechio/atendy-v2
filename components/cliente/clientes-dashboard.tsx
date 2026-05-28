@@ -517,70 +517,93 @@ export function ClientesDashboard({ initialData }: Props) {
         </div>
 
         {advancedOpen ? (
-          <div className="clientes-advanced-grid">
-            <Select value={state.periodField} onChange={(event) => setFilter("periodField", event.target.value as ClientesPeriodField)} aria-label="Filtrar por data de">
-              {clientesPeriodFieldOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  Data: {option.label}
-                </option>
-              ))}
-            </Select>
-            <Select value={state.status} onChange={(event) => setFilter("status", event.target.value as typeof state.status)} aria-label="Status">
-              <option value="active">Status: ativos</option>
-              <option value="archived">Status: arquivados</option>
-              <option value="all">Status: todos</option>
-            </Select>
-            <Select value={state.prazo} onChange={(event) => setFilter("prazo", event.target.value as typeof state.prazo)} aria-label="Prazo">
-              <option value="all">Prazo: todos</option>
-              <option value="overdue">Prazo: vencidos</option>
-              <option value="today">Prazo: hoje</option>
-              <option value="next7">Prazo: próximos 7 dias</option>
-              <option value="none">Prazo: sem prazo</option>
-            </Select>
-            <Select value={state.vigencia} onChange={(event) => setFilter("vigencia", event.target.value as typeof state.vigencia)} aria-label="Vigência">
-              <option value="all">Vigência: todas</option>
-              <option value="vencida">Vigência: vencidas</option>
-              <option value="vigente">Vigência: vigentes</option>
-              <option value="next15">Vigência: próximos 15 dias</option>
-              <option value="next30">Vigência: próximos 30 dias</option>
-              <option value="none">Vigência: sem vigência</option>
-            </Select>
-            <Select value={state.segmento} onChange={(event) => setFilter("segmento", event.target.value)} aria-label="Segmento">
-              <option value="all">Segmento: todos</option>
-              {options.segmentos.map((item) => <option key={item} value={item}>{item}</option>)}
-            </Select>
-            <Select value={state.subsegmento} onChange={(event) => setFilter("subsegmento", event.target.value)} aria-label="Subsegmento">
-              <option value="all">Subsegmento: todos</option>
-              {options.subsegmentos.map((item) => <option key={item} value={item}>{item}</option>)}
-            </Select>
-            <Select value={state.celebridade} onChange={(event) => setFilter("celebridade", event.target.value)} aria-label="Celebridade">
-              <option value="all">Celebridade: todas</option>
-              {options.celebridades.map((item) => <option key={item} value={item}>{item}</option>)}
-            </Select>
-            <Select value={state.praca} onChange={(event) => setFilter("praca", event.target.value)} aria-label="Praça">
-              <option value="all">Praça: todas</option>
-              {options.pracas.map((item) => <option key={item} value={item}>{item}</option>)}
-            </Select>
-            <Select value={state.classificacao} onChange={(event) => setFilter("classificacao", event.target.value)} aria-label="Classificação">
-              <option value="all">Classificação: todas</option>
-              {options.classificacoes.map((item) => <option key={item} value={item}>{item}</option>)}
-            </Select>
-            <Input type="number" placeholder="Valor mínimo" value={state.valorMin} onChange={(event) => setFilter("valorMin", event.target.value)} />
-            <Input type="number" placeholder="Valor máximo" value={state.valorMax} onChange={(event) => setFilter("valorMax", event.target.value)} />
-            <Input type="number" placeholder="Dias mín. na etapa" value={state.diasMin} onChange={(event) => setFilter("diasMin", event.target.value)} />
-            <Input type="number" placeholder="Dias máx. na etapa" value={state.diasMax} onChange={(event) => setFilter("diasMax", event.target.value)} />
-            <label className="clientes-check">
-              <input type="checkbox" checked={state.tarefaUrgente} onChange={(event) => setFilter("tarefaUrgente", event.target.checked)} />
-              Com tarefa urgente
-            </label>
-            <label className="clientes-check">
-              <input type="checkbox" checked={state.semResponsavel} onChange={(event) => setFilter("semResponsavel", event.target.checked)} />
-              Sem responsável
-            </label>
-            <label className="clientes-check">
-              <input type="checkbox" checked={state.comReuniao} onChange={(event) => setFilter("comReuniao", event.target.checked)} />
-              Com reunião agendada
-            </label>
+          <div className="clientes-advanced-panel">
+            <section className="clientes-advanced-section" aria-labelledby="clientes-filter-datas">
+              <h4 id="clientes-filter-datas" className="clientes-advanced-section-title">Datas e prazos</h4>
+              <div className="clientes-advanced-fields">
+                <Select value={state.periodField} onChange={(event) => setFilter("periodField", event.target.value as ClientesPeriodField)} aria-label="Filtrar por data de">
+                  {clientesPeriodFieldOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      Data: {option.label}
+                    </option>
+                  ))}
+                </Select>
+                <Select value={state.prazo} onChange={(event) => setFilter("prazo", event.target.value as typeof state.prazo)} aria-label="Prazo">
+                  <option value="all">Prazo: todos</option>
+                  <option value="overdue">Prazo: vencidos</option>
+                  <option value="today">Prazo: hoje</option>
+                  <option value="next7">Prazo: próximos 7 dias</option>
+                  <option value="none">Prazo: sem prazo</option>
+                </Select>
+                <Select value={state.vigencia} onChange={(event) => setFilter("vigencia", event.target.value as typeof state.vigencia)} aria-label="Vigência">
+                  <option value="all">Vigência: todas</option>
+                  <option value="vencida">Vigência: vencidas</option>
+                  <option value="vigente">Vigência: vigentes</option>
+                  <option value="next15">Vigência: próximos 15 dias</option>
+                  <option value="next30">Vigência: próximos 30 dias</option>
+                  <option value="none">Vigência: sem vigência</option>
+                </Select>
+                <Input type="number" placeholder="Dias mín. na etapa" value={state.diasMin} onChange={(event) => setFilter("diasMin", event.target.value)} />
+                <Input type="number" placeholder="Dias máx. na etapa" value={state.diasMax} onChange={(event) => setFilter("diasMax", event.target.value)} />
+              </div>
+            </section>
+
+            <section className="clientes-advanced-section" aria-labelledby="clientes-filter-categorizacao">
+              <h4 id="clientes-filter-categorizacao" className="clientes-advanced-section-title">Categorização</h4>
+              <div className="clientes-advanced-fields">
+                <Select value={state.segmento} onChange={(event) => setFilter("segmento", event.target.value)} aria-label="Segmento">
+                  <option value="all">Segmento: todos</option>
+                  {options.segmentos.map((item) => <option key={item} value={item}>{item}</option>)}
+                </Select>
+                <Select value={state.subsegmento} onChange={(event) => setFilter("subsegmento", event.target.value)} aria-label="Subsegmento">
+                  <option value="all">Subsegmento: todos</option>
+                  {options.subsegmentos.map((item) => <option key={item} value={item}>{item}</option>)}
+                </Select>
+                <Select value={state.celebridade} onChange={(event) => setFilter("celebridade", event.target.value)} aria-label="Celebridade">
+                  <option value="all">Celebridade: todas</option>
+                  {options.celebridades.map((item) => <option key={item} value={item}>{item}</option>)}
+                </Select>
+                <Select value={state.praca} onChange={(event) => setFilter("praca", event.target.value)} aria-label="Praça">
+                  <option value="all">Praça: todas</option>
+                  {options.pracas.map((item) => <option key={item} value={item}>{item}</option>)}
+                </Select>
+                <Select value={state.classificacao} onChange={(event) => setFilter("classificacao", event.target.value)} aria-label="Classificação">
+                  <option value="all">Classificação: todas</option>
+                  {options.classificacoes.map((item) => <option key={item} value={item}>{item}</option>)}
+                </Select>
+              </div>
+            </section>
+
+            <section className="clientes-advanced-section" aria-labelledby="clientes-filter-valor">
+              <h4 id="clientes-filter-valor" className="clientes-advanced-section-title">Valor</h4>
+              <div className="clientes-advanced-fields">
+                <Input type="number" placeholder="Valor mínimo" value={state.valorMin} onChange={(event) => setFilter("valorMin", event.target.value)} />
+                <Input type="number" placeholder="Valor máximo" value={state.valorMax} onChange={(event) => setFilter("valorMax", event.target.value)} />
+              </div>
+            </section>
+
+            <section className="clientes-advanced-section" aria-labelledby="clientes-filter-status">
+              <h4 id="clientes-filter-status" className="clientes-advanced-section-title">Status e sinalizadores</h4>
+              <div className="clientes-advanced-fields">
+                <Select value={state.status} onChange={(event) => setFilter("status", event.target.value as typeof state.status)} aria-label="Status">
+                  <option value="active">Status: ativos</option>
+                  <option value="archived">Status: arquivados</option>
+                  <option value="all">Status: todos</option>
+                </Select>
+                <label className="clientes-check">
+                  <input type="checkbox" checked={state.tarefaUrgente} onChange={(event) => setFilter("tarefaUrgente", event.target.checked)} />
+                  Com tarefa urgente
+                </label>
+                <label className="clientes-check">
+                  <input type="checkbox" checked={state.semResponsavel} onChange={(event) => setFilter("semResponsavel", event.target.checked)} />
+                  Sem responsável
+                </label>
+                <label className="clientes-check">
+                  <input type="checkbox" checked={state.comReuniao} onChange={(event) => setFilter("comReuniao", event.target.checked)} />
+                  Com reunião agendada
+                </label>
+              </div>
+            </section>
           </div>
         ) : null}
 

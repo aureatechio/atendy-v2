@@ -31,7 +31,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buildWhatsappHref, formatCnpj, formatPhone } from "@/lib/clientes/format";
-import { ClienteActions, ClienteAddComment } from "@/components/cliente/cliente-actions";
+import {
+  ClienteActions,
+  ClienteAddComment,
+  ClienteStagePicker,
+} from "@/components/cliente/cliente-actions";
 import { htmlToPlainText } from "@/lib/utils";
 import { WhatsAppCopyButton } from "@/components/cliente/whatsapp-copy-button";
 
@@ -117,7 +121,6 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
 
   const { cliente, stages, stageHistory, comments, tasks, meetings, adjustments, profiles } = data;
 
-  const currentStage = stages.find((s) => s.id === cliente.current_stage_id) ?? null;
   const mainStages = stages.filter((stage) => !stage.parent_stage_id);
   const dias = daysSince(cliente.stage_entered_at ?? cliente.created_at);
   const responsavel = profileName(profiles, cliente.responsavel_atendimento ?? cliente.assigned_to);
@@ -142,19 +145,6 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
             <h1 className="cliente-title">{nome}</h1>
             <div className="cliente-header-meta">
               {cliente.code ? <span className="cliente-chip">{cliente.code}</span> : null}
-              {currentStage ? (
-                <span
-                  className="cliente-chip cliente-chip--stage"
-                  style={{ borderColor: currentStage.color, color: currentStage.color }}
-                >
-                  <span
-                    className="cliente-chip-dot"
-                    style={{ background: currentStage.color }}
-                    aria-hidden
-                  />
-                  {currentStage.name}
-                </span>
-              ) : null}
               {dias !== null ? (
                 <span className="cliente-chip">
                   {dias === 0 ? "hoje" : `${dias}d na etapa`}
@@ -163,6 +153,13 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
             </div>
           </div>
         </div>
+
+        <ClienteStagePicker
+          clienteId={cliente.id}
+          currentStageId={cliente.current_stage_id}
+          stages={mainStages}
+          isArchived={Boolean(cliente.is_archived)}
+        />
 
         <div className="cliente-kpi-grid">
           <KpiTile icon={Wallet} label="Valor" value={fmtCurrency(valor)} />
@@ -174,8 +171,6 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
         <ClienteActions
           clienteId={cliente.id}
           whatsapp={cliente.whatsapp}
-          currentStageId={cliente.current_stage_id}
-          stages={mainStages}
           isArchived={Boolean(cliente.is_archived)}
         />
       </header>
